@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Harness Engineering 企业实战指南</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bitter:ital,wght@0,400;0,600;0,700;1,400&family=Source+Sans+3:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* === RESET & BASE === */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#FAF8F4;--bg-alt:#F3F0EA;--bg-code:#1E1E2E;
+  --text:#2D2A26;--text-muted:#6B6560;--text-faint:#9C9590;
+  --accent:#2E6B8A;--accent-light:#4A9ABF;--accent-bg:rgba(46,107,138,0.06);
+  --border:#E0DDD8;--border-strong:#C8C4BF;
+  --green:#2D8B4E;--green-bg:rgba(45,139,78,0.08);
+  --blue:#2E6B8A;--blue-bg:rgba(46,107,138,0.06);
+  --purple:#6B4D8A;--purple-bg:rgba(107,77,138,0.06);
+  --orange:#C45D2C;--orange-bg:rgba(196,93,44,0.06);
+  --serif:'Bitter','Georgia',serif;
+  --sans:'Source Sans 3','Segoe UI',sans-serif;
+  --mono:'IBM Plex Mono','Consolas',monospace;
+}
+html{scroll-behavior:smooth;scroll-padding-top:80px}
+body{font-family:var(--sans);color:var(--text);background:var(--bg);line-height:1.75;font-size:17px;-webkit-font-smoothing:antialiased}
+::selection{background:var(--accent);color:#fff}
+
+/* === LAYOUT === */
+.page{display:flex;gap:0;min-height:100vh}
+.sidebar{
+  width:280px;flex-shrink:0;position:sticky;top:0;height:100vh;
+  background:var(--bg-alt);border-right:1px solid var(--border);
+  padding:2.5rem 1.5rem;overflow-y:auto;z-index:100;
+  display:flex;flex-direction:column;
+}
+.main{flex:1;min-width:0;max-width:900px;margin:0 auto;padding:0 3rem 6rem}
+
+/* === SIDEBAR === */
+.sidebar-brand{font-family:var(--serif);font-size:1.1rem;font-weight:700;color:var(--text);margin-bottom:.3rem;letter-spacing:-0.01em}
+.sidebar-subtitle{font-size:.82rem;color:var(--text-muted);margin-bottom:2rem;line-height:1.5}
+.sidebar-nav{flex:1}
+.sidebar-nav ul{list-style:none}
+.sidebar-nav li{margin-bottom:2px}
+.sidebar-nav a{
+  display:block;padding:.45rem .75rem;font-size:.85rem;color:var(--text-muted);
+  text-decoration:none;border-left:2px solid transparent;border-radius:0;
+  transition:all .2s ease;line-height:1.45;
+}
+.sidebar-nav a:hover{color:var(--accent);border-left-color:var(--accent-light);background:var(--accent-bg)}
+.sidebar-nav a.active{color:var(--accent);border-left-color:var(--accent);font-weight:600}
+.sidebar-nav .nav-section{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-faint);padding:.5rem .75rem;margin-top:1rem;font-weight:600}
+.sidebar-footer{font-size:.75rem;color:var(--text-faint);border-top:1px solid var(--border);padding-top:1rem;margin-top:1.5rem}
+.sidebar-footer a{color:var(--accent);text-decoration:none}
+.sidebar-footer a:hover{text-decoration:underline}
+
+/* === HERO === */
+.hero{padding:5rem 0 3.5rem;position:relative}
+.hero-label{
+  display:inline-block;font-family:var(--mono);font-size:.75rem;font-weight:500;
+  color:var(--accent);background:var(--accent-bg);padding:.3rem .8rem;
+  border-radius:3px;margin-bottom:1.2rem;letter-spacing:.04em;
+}
+.hero h1{
+  font-family:var(--serif);font-size:clamp(2.2rem,5vw,3.2rem);font-weight:700;
+  line-height:1.2;color:var(--text);margin-bottom:1rem;letter-spacing:-0.02em;
+}
+.hero h1 em{font-style:normal;color:var(--accent)}
+.hero-desc{font-size:1.15rem;color:var(--text-muted);max-width:640px;line-height:1.7}
+.hero-meta{margin-top:1.5rem;display:flex;gap:1.5rem;font-size:.85rem;color:var(--text-faint)}
+.hero-meta span{display:flex;align-items:center;gap:.4rem}
+.hero-divider{height:1px;background:linear-gradient(90deg,var(--accent),var(--border) 40%,transparent);margin:2rem 0 3rem}
+
+/* === SECTIONS === */
+.section{margin-bottom:3.5rem}
+.section h2{
+  font-family:var(--serif);font-size:clamp(1.6rem,3.5vw,2rem);font-weight:700;
+  color:var(--text);margin-bottom:1.2rem;line-height:1.3;
+  padding-bottom:.6rem;border-bottom:1px solid var(--border);
+  letter-spacing:-0.01em;
+}
+.section h2 .section-num{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:2.2rem;height:2.2rem;font-size:.85rem;font-weight:600;
+  color:#fff;background:var(--accent);border-radius:50%;
+  margin-right:.6rem;vertical-align:middle;flex-shrink:0;
+}
+.section h3{font-family:var(--serif);font-size:1.3rem;font-weight:600;margin:1.8rem 0 .8rem;color:var(--text)}
+.section h4{font-size:1.05rem;font-weight:600;margin:1.4rem 0 .6rem;color:var(--text)}
+.section p{margin-bottom:1.1rem;color:var(--text)}
+.section p.lead{font-size:1.08rem;color:var(--text-muted);line-height:1.8}
+
+/* === TABLES === */
+.table-wrap{overflow-x:auto;margin:1.2rem 0 1.5rem;border:1px solid var(--border);border-radius:6px}
+table{width:100%;border-collapse:collapse;font-size:.9rem}
+thead{background:var(--bg-alt)}
+th{font-family:var(--serif);font-weight:600;text-align:left;padding:.75rem 1rem;border-bottom:2px solid var(--border-strong);color:var(--text);font-size:.85rem;white-space:nowrap}
+td{padding:.65rem 1rem;border-bottom:1px solid var(--border);color:var(--text)}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:var(--accent-bg)}
+
+/* === CODE === */
+code{font-family:var(--mono);font-size:.85em;background:var(--bg-alt);padding:.15em .4em;border-radius:3px;color:var(--accent)}
+pre{
+  background:var(--bg-code);color:#CDD6F4;padding:1.4rem 1.5rem;
+  border-radius:8px;overflow-x:auto;margin:1.2rem 0 1.5rem;
+  font-family:var(--mono);font-size:.82rem;line-height:1.7;
+  box-shadow:0 2px 12px rgba(0,0,0,.08);position:relative;
+}
+pre .comment{color:#6C7086}
+pre .keyword{color:#CBA6F7}
+pre .string{color:#A6E3A1}
+pre .cmd{color:#89B4FA}
+pre .prompt{color:#F9E2AF}
+
+/* === BLOCKQUOTE / CALLOUT === */
+.callout{
+  border-left:3px solid var(--orange);background:var(--orange-bg);
+  padding:1rem 1.4rem;margin:1.5rem 0;border-radius:0 6px 6px 0;
+  font-size:.95rem;line-height:1.7;
+}
+.callout strong{color:var(--orange)}
+.callout-info{border-left-color:var(--blue);background:var(--blue-bg)}
+.callout-info strong{color:var(--blue)}
+.callout-success{border-left-color:var(--green);background:var(--green-bg)}
+.callout-success strong{color:var(--green)}
+.callout-purple{border-left-color:var(--purple);background:var(--purple-bg)}
+.callout-purple strong{color:var(--purple)}
+
+/* === DIAGRAM BOXES === */
+.diagram{
+  background:var(--bg-code);border-radius:8px;padding:1.5rem 1.8rem;
+  margin:1.5rem 0 2rem;overflow-x:auto;
+  font-family:var(--mono);font-size:.78rem;line-height:1.8;
+  color:#CDD6F4;box-shadow:0 2px 12px rgba(0,0,0,.08);
+}
+
+/* === ARCHITECTURE DIAGRAM === */
+.arch-diagram{
+  background:#fff;border:1px solid var(--border);border-radius:8px;
+  padding:1.5rem 2rem;margin:1.5rem 0 2rem;font-size:.85rem;line-height:2;
+}
+.arch-row{display:flex;align-items:center;gap:.5rem;padding:.3rem 0}
+.arch-box{
+  display:inline-flex;align-items:center;padding:.35rem .9rem;
+  border-radius:4px;font-family:var(--mono);font-size:.78rem;font-weight:500;
+  border:1px solid;
+}
+.arch-box.blue{background:var(--blue-bg);color:var(--blue);border-color:rgba(46,107,138,.2)}
+.arch-box.amber{background:var(--orange-bg);color:var(--orange);border-color:rgba(196,93,44,.15)}
+.arch-box.green{background:var(--green-bg);color:var(--green);border-color:rgba(45,139,78,.2)}
+.arch-box.purple{background:var(--purple-bg);color:var(--purple);border-color:rgba(107,77,138,.2)}
+.arch-box.gray{background:var(--bg-alt);color:var(--text-muted);border-color:var(--border)}
+
+/* === FLOW CHART === */
+.flow{display:flex;flex-direction:column;align-items:center;gap:.3rem;margin:1.5rem 0}
+.flow-step{
+  background:#fff;border:1px solid var(--border);border-radius:6px;
+  padding:.6rem 1.4rem;font-size:.88rem;color:var(--text);
+  text-align:center;min-width:280px;
+}
+.flow-arrow{color:var(--accent);font-family:var(--mono);font-size:1.1rem}
+
+/* === CARD GRID === */
+.card-grid{display:grid;gap:1rem;margin:1.5rem 0}
+.card-grid.two{grid-template-columns:1fr 1fr}
+.card{
+  border:1px solid var(--border);border-radius:8px;padding:1.4rem 1.5rem;
+  background:#fff;transition:box-shadow .2s ease;
+}
+.card:hover{box-shadow:0 4px 16px rgba(0,0,0,.06)}
+.card h4{margin:0 0 .6rem;font-family:var(--serif);font-size:1.1rem;color:var(--text)}
+.card p{font-size:.9rem;color:var(--text-muted);margin:0;line-height:1.65}
+.card .card-tag{
+  display:inline-block;font-family:var(--mono);font-size:.7rem;font-weight:500;
+  padding:.2rem .5rem;border-radius:3px;margin-bottom:.6rem;
+}
+.tag-l1{background:var(--blue-bg);color:var(--blue)}
+.tag-l2{background:var(--orange-bg);color:var(--orange)}
+.tag-l3{background:var(--green-bg);color:var(--green)}
+.tag-l4{background:var(--purple-bg);color:var(--purple)}
+
+/* === LISTS === */
+.section ul,.section ol{margin:0 0 1.2rem 1.2rem}
+.section li{margin-bottom:.4rem;line-height:1.7}
+.section ul li::marker{color:var(--accent)}
+
+/* === FAQ === */
+.faq{margin-bottom:1.2rem}
+.faq-q{font-family:var(--serif);font-size:1.05rem;font-weight:600;color:var(--text);margin-bottom:.4rem}
+.faq-q::before{content:'Q: ';color:var(--accent);font-family:var(--sans);font-weight:700}
+.faq-a{font-size:.95rem;color:var(--text-muted);line-height:1.75;margin-left:1.5rem}
+
+/* === BACK LINK === */
+.back-link{
+  display:inline-flex;align-items:center;gap:.5rem;font-size:.9rem;
+  color:var(--accent);text-decoration:none;margin-bottom:1rem;
+  padding:.4rem .8rem;border-radius:4px;transition:background .2s;
+}
+.back-link:hover{background:var(--accent-bg)}
+
+/* === FOOTER === */
+.footer{border-top:1px solid var(--border);padding-top:2rem;margin-top:4rem;text-align:center;font-size:.85rem;color:var(--text-faint)}
+
+/* === BACK TO TOP === */
+.back-top{
+  position:fixed;bottom:2rem;right:2rem;width:2.5rem;height:2.5rem;
+  background:var(--accent);color:#fff;border:none;border-radius:50%;
+  cursor:pointer;font-size:1.1rem;display:flex;align-items:center;justify-content:center;
+  opacity:0;transform:translateY(10px);transition:all .3s ease;z-index:999;
+  box-shadow:0 2px 8px rgba(46,107,138,.3);
+}
+.back-top.visible{opacity:1;transform:translateY(0)}
+.back-top:hover{background:var(--accent-light);transform:translateY(-2px)}
+
+/* === MOBILE TOGGLE === */
+.mobile-toggle{
+  display:none;position:fixed;top:1rem;left:1rem;z-index:200;
+  width:2.5rem;height:2.5rem;background:var(--bg);border:1px solid var(--border);
+  border-radius:6px;cursor:pointer;font-size:1.2rem;
+  align-items:center;justify-content:center;
+}
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:99}
+
+/* === RESPONSIVE === */
+@media(max-width:1024px){
+  .sidebar{position:fixed;left:-300px;top:0;transition:left .3s ease;z-index:100}
+  .sidebar.open{left:0}
+  .sidebar-overlay.open{display:block}
+  .mobile-toggle{display:flex}
+  .main{padding:0 1.5rem 4rem}
+  .hero{padding:4rem 0 2.5rem}
+  .card-grid.two{grid-template-columns:1fr}
+}
+@media(max-width:640px){
+  body{font-size:16px}
+  .main{padding:0 1rem 3rem}
+  .hero h1{font-size:1.8rem}
+  .section h2{font-size:1.4rem}
+  .hero-meta{flex-direction:column;gap:.5rem}
+  pre{font-size:.75rem;padding:1rem}
+}
+
+/* === ANIMATIONS === */
+@keyframes fadeInUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.section{animation:fadeInUp .5s ease both}
+.section:nth-child(2){animation-delay:.05s}
+.section:nth-child(3){animation-delay:.1s}
+.section:nth-child(4){animation-delay:.15s}
+.section:nth-child(5){animation-delay:.2s}
+</style>
+</head>
+<body>
+
+<!-- Mobile Toggle -->
+<button class="mobile-toggle" onclick="toggleSidebar()" aria-label="Toggle navigation">&#9776;</button>
+<div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+<div class="page">
+
+<!-- ========== SIDEBAR ========== -->
+<aside class="sidebar">
+  <div class="sidebar-brand">Harness Engineering</div>
+  <div class="sidebar-subtitle">企业实战指南<br>从概念到六层架构落地</div>
+  <nav class="sidebar-nav">
+    <ul id="toc">
+      <li><a href="#s1">一、什么是 Harness Engineering</a></li>
+      <li><a href="#s2">二、核心公式：Agent = Model + Harness</a></li>
+      <li><a href="#s3">三、六层架构总览</a></li>
+      <li><a href="#s4">四、L1 信息边界层</a></li>
+      <li><a href="#s5">五、L2 工具与执行层</a></li>
+      <li><a href="#s6">六、L3 工作流编排层</a></li>
+      <li><a href="#s7">七、L4 记忆与上下文层</a></li>
+      <li><a href="#s8">八、L5 反馈与评估层</a></li>
+      <li><a href="#s9">九、L6 约束与护栏层</a></li>
+      <li><a href="#s10">十、渐进式学习路径</a></li>
+      <li><a href="#s11">十一、企业实战场景</a></li>
+      <li><a href="#s12">十二、常见问题与排错</a></li>
+    </ul>
+  </nav>
+  <div class="sidebar-footer">
+    <a href="index.html">&larr; 返回：记忆系统指南</a>
+  </div>
+</aside>
+
+<!-- ========== MAIN ========== -->
+<main class="main">
+
+<a href="index.html" class="back-link">&larr; 返回首页：Claude Code 记忆系统指南</a>
+
+<!-- HERO -->
+<header class="hero">
+  <div class="hero-label">ENTERPRISE PRACTICE GUIDE</div>
+  <h1>Harness Engineering<em>企业实战指南</em></h1>
+  <p class="hero-desc">从概念出发，深入六层架构，结合企业开发场景给出从简单到复杂、可快速应用的 AI 智能体驾驭工程手册。</p>
+  <div class="hero-meta">
+    <span>&#128197; 2026-05-11</span>
+    <span>&#128218; 约 20 分钟阅读</span>
+    <span>&#127968; 企业开发实战</span>
+  </div>
+</header>
+<div class="hero-divider"></div>
+
+<!-- ========== SECTION 1 ========== -->
+<div class="section" id="s1">
+  <h2><span class="section-num">1</span>什么是 Harness Engineering？</h2>
+  <p class="lead">Harness Engineering（驾驭工程 / 缰绳工程）是 2025-2026 年 AI Agent 开发领域兴起的一门新学科。</p>
+  <p>一句话解释：<strong>为 AI 智能体设计环境、约束和反馈回路，让它从"能聊天"变成"能干活"。</strong></p>
+  <p>视频开头讲了一个真实案例：一个团队用了最强的模型，迭代了上百版提示词，但 Agent 的任务成功率始终低于 70%。后来他们不再纠结于提示词本身，转而构建了一套<strong>结构化的驾驭系统</strong>，成功率大幅提升。</p>
+  <div class="callout">
+    <strong>核心认知：</strong>问题不在模型，而在你如何"驾驭"模型。
+  </div>
+</div>
+
+<!-- ========== SECTION 2 ========== -->
+<div class="section" id="s2">
+  <h2><span class="section-num">2</span>核心公式：Agent = Model + Harness</h2>
+  <div class="diagram">
+    <span class="label">Agent</span> = <span class="keyword">Model</span> + <span class="box">Harness</span>
+  </div>
+  <div class="card-grid two">
+    <div class="card">
+      <span class="card-tag tag-l1">Model</span>
+      <h4>大语言模型</h4>
+      <p>GPT、Claude 等提供原始智能。就像马的体力和智力。</p>
+    </div>
+    <div class="card">
+      <span class="card-tag tag-l2">Harness</span>
+      <h4>驾驭系统</h4>
+      <p>围绕模型构建的环境、工具、约束、反馈。就像缰绳、马鞍、跑道、训练方法。</p>
+    </div>
+  </div>
+  <div class="callout callout-info">
+    <strong>6 倍性能提升：</strong>Harness 架构可以让同一个模型的性能提升 6 倍。这不是夸张，多个团队已验证过。
+  </div>
+</div>
+
+<!-- ========== SECTION 3 ========== -->
+<div class="section" id="s3">
+  <h2><span class="section-num">3</span>六层架构总览</h2>
+  <p>Harness Engineering 的核心是<strong>六层架构</strong>，从内到外逐层构建：</p>
+  <div class="arch-diagram">
+    <div class="arch-row">
+      <span class="arch-box purple" style="min-width:320px">L6 约束与护栏</span>
+      <span style="color:var(--text-faint)">安全边界、权限控制、领域隔离</span>
+    </div>
+    <div class="arch-row" style="padding-left:2rem">
+      <span style="color:var(--text-faint)">&#9553;</span>
+    </div>
+    <div class="arch-row">
+      <span class="arch-box green" style="min-width:320px">L5 反馈与评估</span>
+      <span style="color:var(--text-faint)">测试、CI/CD、代码审查、自修正</span>
+    </div>
+    <div class="arch-row" style="padding-left:2rem">
+      <span style="color:var(--text-faint)">&#9553;</span>
+    </div>
+    <div class="arch-row">
+      <span class="arch-box amber" style="min-width:320px">L4 记忆与上下文</span>
+      <span style="color:var(--text-faint)">CLAUDE.md、AGENTS.md、知识库</span>
+    </div>
+    <div class="arch-row" style="padding-left:2rem">
+      <span style="color:var(--text-faint)">&#9553;</span>
+    </div>
+    <div class="arch-row">
+      <span class="arch-box blue" style="min-width:320px">L3 工作流编排</span>
+      <span style="color:var(--text-faint)">SOP、任务分解、多智能体协调</span>
+    </div>
+    <div class="arch-row" style="padding-left:2rem">
+      <span style="color:var(--text-faint)">&#9553;</span>
+    </div>
+    <div class="arch-row">
+      <span class="arch-box gray" style="min-width:320px">L2 工具与执行</span>
+      <span style="color:var(--text-faint)">文件系统、Bash 沙箱、MCP、搜索</span>
+    </div>
+    <div class="arch-row" style="padding-left:2rem">
+      <span style="color:var(--text-faint)">&#9553;</span>
+    </div>
+    <div class="arch-row">
+      <span class="arch-box gray" style="min-width:320px">L1 信息边界</span>
+      <span style="color:var(--text-faint)">上下文范围、项目结构、文档</span>
+    </div>
+  </div>
+  <div class="callout callout-success">
+    <strong>构建原则：</strong>从 L1 开始逐层向外搭建，每一层都建立在前一层的基础上。
+  </div>
+</div>
+
+<!-- ========== SECTION 4 ========== -->
+<div class="section" id="s4">
+  <h2><span class="section-num">4</span>L1：信息边界层</h2>
+  <h3>定义</h3>
+  <p class="lead">控制 Agent <strong>能看到什么信息</strong>。就像给 Agent 一张项目地图，告诉它"这里有什么，别的地方别去"。</p>
+  <h3>为什么重要</h3>
+  <p>没有信息边界的 Agent 就像把人扔进图书馆但不给目录——它会浪费时间在不相关的文件上，或者遗漏关键上下文。</p>
+  <h3>实操方法</h3>
+  <h4>4.1 项目上下文文件</h4>
+  <p>在项目根目录创建 <code>CLAUDE.md</code>，告诉 Agent 项目的基本结构：</p>
+<pre><span class="comment"># Project Context</span>
+<span class="string">This repo is a personal knowledge base.</span>
+
+<span class="comment">## How It Works</span>
+<span class="string">- Each top-level folder = one topic/module</span>
+<span class="string">- Notes are written in Markdown</span>
+<span class="string">- Static demo pages go inside a docs/ subfolder</span></pre>
+  <h4>4.2 模块化上下文</h4>
+  <p>对于大型项目，每个模块放自己的上下文文件：</p>
+<pre><span class="prompt">project/</span>
+<span class="comment">├── CLAUDE.md              # 全局项目上下文</span>
+<span class="comment">├── src/</span>
+<span class="comment">│   ├── api/</span>
+<span class="comment">│   │   └── CLAUDE.md      # API 模块上下文</span>
+<span class="comment">│   ├── frontend/</span>
+<span class="comment">│   │   └── CLAUDE.md      # 前端模块上下文</span>
+<span class="comment">│   └── database/</span>
+<span class="comment">│       └── CLAUDE.md      # 数据库模块上下文</span></pre>
+</div>
+
+<!-- ========== SECTION 5 ========== -->
+<div class="section" id="s5">
+  <h2><span class="section-num">5</span>L2：工具与执行层</h2>
+  <h3>定义</h3>
+  <p class="lead">Agent 能使用哪些<strong>工具和执行环境</strong>。信息边界告诉 Agent"有什么"，工具层告诉 Agent"能做什么"。</p>
+  <div class="arch-diagram">
+    <div class="arch-row" style="justify-content:center">
+      <span class="arch-box blue" style="min-width:400px">工具执行环境</span>
+    </div>
+    <div class="arch-row" style="justify-content:center;gap:1.5rem">
+      <span class="arch-box gray">文件系统</span>
+      <span class="arch-box amber">Bash 沙箱</span>
+      <span class="arch-box green">Web 搜索</span>
+      <span class="arch-box purple">MCP</span>
+    </div>
+  </div>
+  <h3>核心工具</h3>
+  <h4>5.1 文件系统 — 结构化访问</h4>
+<pre><span class="prompt">project/</span>
+<span class="comment">├── src/           # 源码 — Agent 可以修改</span>
+<span class="comment">├── tests/         # 测试 — Agent 应该更新</span>
+<span class="comment">├── docs/          # 文档 — Agent 可以补充</span>
+<span class="comment">├── .claude/       # Agent 配置 — Agent 可以调整</span>
+<span class="comment">└── secrets.env    # 密钥 — Agent 只能读取</span></pre>
+  <h4>5.2 MCP（Model Context Protocol）</h4>
+  <p>MCP 是 Agent 连接外部系统的标准化协议：</p>
+<pre><span class="comment">// MCP Server 配置示例</span>
+{
+  <span class="string">"mcpServers"</span>: {
+    <span class="string">"github"</span>: {
+      <span class="string">"command"</span>: <span class="string">"npx"</span>,
+      <span class="string">"args"</span>: [<span class="string">"-y"</span>, <span class="string">"@modelcontextprotocol/server-github"</span>]
+    },
+    <span class="string">"filesystem"</span>: {
+      <span class="string">"command"</span>: <span class="string">"npx"</span>,
+      <span class="string">"args"</span>: [<span class="string">"-y"</span>, <span class="string">"@modelcontextprotocol/server-filesystem"</span>, <span class="string">"/workspace"</span>]
+    }
+  }
+}</pre>
+</div>
+
+<!-- ========== SECTION 6 ========== -->
+<div class="section" id="s6">
+  <h2><span class="section-num">6</span>L3：工作流编排层</h2>
+  <h3>定义</h3>
+  <p class="lead">Agent <strong>如何工作</strong>——任务分解、执行步骤、多智能体协调。从"单步操作"到"流程驱动"的关键层。</p>
+  <h3>6.1 SOP（标准操作流程）</h3>
+  <p>为常见任务定义标准流程：</p>
+  <div class="flow">
+    <div class="flow-step">阅读 CLAUDE.md 了解项目结构</div>
+    <div class="flow-arrow">&#8595;</div>
+    <div class="flow-step">探索相关模块的代码</div>
+    <div class="flow-arrow">&#8595;</div>
+    <div class="flow-step">设计实现方案（列出步骤）</div>
+    <div class="flow-arrow">&#8595;</div>
+    <div class="flow-step">编写代码</div>
+    <div class="flow-arrow">&#8595;</div>
+    <div class="flow-step">运行测试</div>
+    <div class="flow-arrow">&#8595;</div>
+    <div class="flow-step">更新文档并提交</div>
+  </div>
+  <h3>6.2 多智能体编排</h3>
+  <div class="arch-diagram">
+    <div class="arch-row" style="justify-content:center">
+      <span class="arch-box purple">协调者 Agent</span>
+    </div>
+    <div class="arch-row" style="justify-content:center">
+      <span style="color:var(--text-faint)">&#8595; 分解任务</span>
+    </div>
+    <div class="arch-row" style="justify-content:center;gap:1rem;flex-wrap:wrap">
+      <span class="arch-box blue">前端 Agent</span>
+      <span class="arch-box amber">后端 Agent</span>
+      <span class="arch-box green">测试 Agent</span>
+    </div>
+    <div class="arch-row" style="justify-content:center">
+      <span style="color:var(--text-faint)">&#8595; 合并结果 &rarr; 审查 &rarr; 输出</span>
+    </div>
+  </div>
+</div>
+
+<!-- ========== SECTION 7 ========== -->
+<div class="section" id="s7">
+  <h2><span class="section-num">7</span>L4：记忆与上下文层</h2>
+  <h3>定义</h3>
+  <p class="lead">Agent <strong>如何记住</strong>之前的工作和学习成果。没有记忆的 Agent 每次都是全新的开始。</p>
+  <div class="card-grid two">
+    <div class="card">
+      <span class="card-tag tag-l1">短期</span>
+      <h4>会话记忆</h4>
+      <p>对话历史、当前任务、工具调用、中间状态。</p>
+    </div>
+    <div class="card">
+      <span class="card-tag tag-l2">长期</span>
+      <h4>持久化记忆</h4>
+      <p>项目知识（CLAUDE.md）、用户偏好（memory/）、反馈记录、经验教训。</p>
+    </div>
+  </div>
+  <h3>记忆目录结构</h3>
+<pre><span class="prompt">.claude/memory/</span>
+<span class="comment">├── MEMORY.md          # 记忆索引</span>
+<span class="comment">├── user_role.md       # 用户信息</span>
+<span class="comment">├── feedback_*.md      # 反馈记录</span>
+<span class="comment">├── project_*.md       # 项目状态</span>
+<span class="comment">└── reference_*.md     # 外部资源引用</span></pre>
+</div>
+
+<!-- ========== SECTION 8 ========== -->
+<div class="section" id="s8">
+  <h2><span class="section-num">8</span>L5：反馈与评估层</h2>
+  <h3>定义</h3>
+  <p class="lead">Agent <strong>如何知道自己做得对不对</strong>。从"盲盒输出"到"可控质量"的关键。</p>
+  <h3>反馈回路</h3>
+  <div class="flow">
+    <div class="flow-step">任务输入 &rarr; Agent 执行 &rarr; 评估</div>
+    <div class="flow-arrow">&#8608;</div>
+    <div class="flow-step">自修正 &larr; 反馈结果</div>
+  </div>
+  <h3>8.1 自动化测试循环</h3>
+  <div class="flow">
+    <div class="flow-step">Agent 修改代码</div>
+    <div class="flow-arrow">&#8595;</div>
+    <div class="flow-step">运行单元测试</div>
+    <div class="flow-arrow">&#8595;</div>
+    <div class="flow-step">如果失败：分析错误 &rarr; 修复 &rarr; 重新测试</div>
+    <div class="flow-arrow">&#8595;</div>
+    <div class="flow-step">如果通过：运行集成测试 &rarr; 提交</div>
+  </div>
+  <h3>8.2 代码审查循环</h3>
+<pre><span class="comment">// Agent 完成修改 &rarr; 触发审查</span>
+<span class="cmd">审查 Agent 检查：</span>
+  <span class="string">- 是否符合项目约定 (CLAUDE.md)</span>
+  <span class="string">- 是否有安全漏洞</span>
+  <span class="string">- 是否引入不必要的复杂度</span>
+  <span class="string">- 测试是否覆盖</span></pre>
+</div>
+
+<!-- ========== SECTION 9 ========== -->
+<div class="section" id="s9">
+  <h2><span class="section-num">9</span>L6：约束与护栏层</h2>
+  <h3>定义</h3>
+  <p class="lead">Agent <strong>不能做什么</strong>。最后一道防线，确保安全性和可控性。</p>
+  <div class="card-grid two">
+    <div class="card">
+      <span class="card-tag tag-l1">权限约束</span>
+      <h4>能读不能改</h4>
+      <p>不能删文件、不能执行 rm、不能推送主分支。</p>
+    </div>
+    <div class="card">
+      <span class="card-tag tag-l2">领域约束</span>
+      <h4>领域隔离</h4>
+      <p>只负责前端、不碰后端、不碰数据库、不碰基础设施。</p>
+    </div>
+  </div>
+  <h3>权限控制示例</h3>
+<pre>{
+  <span class="string">"permissions"</span>: {
+    <span class="string">"Read"</span>:         <span class="string">"auto"</span>,
+    <span class="string">"Edit"</span>:         <span class="string">"auto"</span>,
+    <span class="string">"Bash"</span>:         <span class="string">"prompt"</span>,
+    <span class="string">"Bash:npm test"</span>: <span class="string">"auto"</span>,
+    <span class="string">"Bash:git push"</span>: <span class="string">"deny"</span>,
+    <span class="string">"Bash:rm *"</span>:     <span class="string">"deny"</span>
+  }
+}</pre>
+</div>
+
+<!-- ========== SECTION 10 ========== -->
+<div class="section" id="s10">
+  <h2><span class="section-num">10</span>渐进式学习路径</h2>
+  <p class="lead">从简单到复杂，六个 Level 逐步构建 Harness 能力。</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Level</th><th>目标</th><th>预计时间</th><th>检查点</th></tr></thead>
+      <tbody>
+        <tr><td><strong>1</strong><br>单文件修改</td><td>让 Agent 正确修改一个文件</td><td>30 分钟</td><td>Agent 能正确定位文件且不引入 Bug</td></tr>
+        <tr><td><strong>2</strong><br>多文件协调</td><td>在多个文件间正确修改</td><td>1-2 小时</td><td>理解文件间依赖关系，按正确顺序修改</td></tr>
+        <tr><td><strong>3</strong><br>工作流编排</td><td>定义 SOP，按流程执行</td><td>半天</td><td>能分解大任务，Hooks 在正确节点触发</td></tr>
+        <tr><td><strong>4</strong><br>记忆系统</td><td>从历史经验中学习</td><td>1 天</td><td>不会重复已知错误，应用用户偏好</td></tr>
+        <tr><td><strong>5</strong><br>自动反馈</td><td>自我验证和修正</td><td>1-2 天</td><td>能识别测试失败并自动修复</td></tr>
+        <tr><td><strong>6</strong><br>完整 Harness</td><td>生产级六层系统</td><td>1 周</td><td>所有层协同，约束不被绕过</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout callout-success">
+    <strong>建议：</strong>从 Level 1 开始，每通过一个检查点再进入下一层。不要跳级。
+  </div>
+</div>
+
+<!-- ========== SECTION 11 ========== -->
+<div class="section" id="s11">
+  <h2><span class="section-num">11</span>企业实战场景</h2>
+
+  <h3>场景一：日常开发辅助</h3>
+  <p><strong>背景</strong>：开发团队 5 人，日常有大量 CRUD 功能和 API 端点需要实现。</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>层</th><th>配置</th></tr></thead>
+      <tbody>
+        <tr><td>L1</td><td>CLAUDE.md 包含项目架构、API 规范、数据库约定</td></tr>
+        <tr><td>L2</td><td>文件系统读写 + npm 工具 + 本地测试环境</td></tr>
+        <tr><td>L3</td><td>SOP = "读文档 &rarr; 设计 &rarr; 编码 &rarr; 测试 &rarr; 提交"</td></tr>
+        <tr><td>L4</td><td>记忆团队编码约定和历史踩坑记录</td></tr>
+        <tr><td>L5</td><td>每次修改后运行单元测试 + lint + 类型检查</td></tr>
+        <tr><td>L6</td><td>禁止修改基础设施配置，禁止推送主分支</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout-success">
+    <strong>效果：</strong>简单功能开发时间从 2 小时缩短到 20 分钟，Agent 成功率从 60% 提升到 95%。
+  </div>
+
+  <h3>场景二：Code Review 自动化</h3>
+  <p><strong>背景</strong>：PR 量大，人工审查不过来，需要 Agent 自动做第一轮审查。</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>层</th><th>配置</th></tr></thead>
+      <tbody>
+        <tr><td>L1</td><td>CLAUDE.md 定义代码规范、架构约定</td></tr>
+        <tr><td>L2</td><td>git diff 读取变更 + 静态分析工具</td></tr>
+        <tr><td>L3</td><td>SOP = "读取 PR &rarr; 分析变更 &rarr; 检查规范 &rarr; 检查安全 &rarr; 生成报告"</td></tr>
+        <tr><td>L4</td><td>记忆团队的代码审查偏好和历史问题</td></tr>
+        <tr><td>L5</td><td>生成审查报告，标记需要人工关注的点</td></tr>
+        <tr><td>L6</td><td>只能评论，不能直接合并或关闭 PR</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>场景三：多 Agent 协作开发</h3>
+  <p><strong>背景</strong>：一个全栈功能需要前端、后端、测试、文档同时开发。</p>
+  <div class="arch-diagram">
+    <div class="arch-row" style="justify-content:center">
+      <span class="arch-box purple" style="min-width:240px">协调者 Agent (L3)</span>
+    </div>
+    <div class="arch-row" style="justify-content:center;gap:1rem;flex-wrap:wrap">
+      <span class="arch-box blue">前端 Agent</span>
+      <span class="arch-box amber">后端 Agent</span>
+      <span class="arch-box green">测试 Agent</span>
+      <span class="arch-box gray">文档 Agent</span>
+    </div>
+    <div class="arch-row" style="justify-content:center">
+      <span style="color:var(--text-faint)">&#8595;</span>
+    </div>
+    <div class="arch-row" style="justify-content:center">
+      <span class="arch-box purple" style="min-width:240px">审查 Agent (L5)</span>
+    </div>
+    <div class="arch-row" style="justify-content:center">
+      <span style="color:var(--text-faint)">&#8595; 通过 &rarr; 合并 / 不通过 &rarr; 返回修改</span>
+    </div>
+  </div>
+</div>
+
+<!-- ========== SECTION 12 ========== -->
+<div class="section" id="s12">
+  <h2><span class="section-num">12</span>常见问题与排错</h2>
+
+  <div class="faq">
+    <div class="faq-q">Agent 总是忽略我的约束怎么办？</div>
+    <div class="faq-a">1) 检查 CLAUDE.md 是否在正确位置；2) 约束描述是否清晰明确（避免"尽量"等模糊用词）；3) 在 L6 层面添加硬约束（权限配置），而非仅依赖文本描述。</div>
+  </div>
+  <div class="faq">
+    <div class="faq-q">Agent 的修改通过了测试但有 Bug 怎么办？</div>
+    <div class="faq-a">这是 L5 反馈层不够强的信号。补充缺失测试用例、添加集成测试、引入静态分析工具、在 CLAUDE.md 中记录常见 Bug 模式。</div>
+  </div>
+  <div class="faq">
+    <div class="faq-q">多 Agent 协作时互相覆盖修改怎么办？</div>
+    <div class="faq-a">L6：严格划分每个 Agent 的修改范围。L3：协调者控制执行顺序，避免并行冲突。L2：使用 git 分支隔离，最后统一合并。</div>
+  </div>
+  <div class="faq">
+    <div class="faq-q">如何衡量 Harness 的效果？</div>
+    <div class="faq-a">
+      <table>
+        <thead><tr><th>指标</th><th>目标值</th></tr></thead>
+        <tbody>
+          <tr><td>任务成功率</td><td>&gt; 90%</td></tr>
+          <tr><td>平均修复次数</td><td>&lt; 2 次</td></tr>
+          <tr><td>上下文准确率</td><td>&gt; 95%</td></tr>
+          <tr><td>约束遵守率</td><td>100%</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="callout-purple" style="margin-top:2rem">
+    <strong>总结：</strong>Harness Engineering 的核心思想是——<strong>不要纠结于让模型更聪明，而是构建一个让模型能可靠工作的系统</strong>。六层架构从信息边界到约束护栏，每一层都在增加 Agent 的可靠性。从 Level 1 开始，逐层构建。
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <p>参考视频：<a href="https://www.bilibili.com/video/BV1Zk9FBwELs/" target="_blank" rel="noopener" style="color:var(--accent)">最近爆火的Harness Engineering 到底是啥？一期讲透！</a></p>
+  <p style="margin-top:.5rem">适用于零基础到中级读者 &middot; 2026</p>
+</footer>
+
+</main>
+</div>
+
+<!-- Back to top -->
+<button class="back-top" id="backTop" onclick="window.scrollTo({top:0,behavior:'smooth'})" aria-label="Back to top">&#8593;</button>
+
+<script>
+function toggleSidebar(){
+  document.querySelector('.sidebar').classList.toggle('open');
+  document.querySelector('.sidebar-overlay').classList.toggle('open');
+}
+const backTop=document.getElementById('backTop');
+window.addEventListener('scroll',()=>{
+  backTop.classList.toggle('visible',window.scrollY>400);
+},{passive:true});
+const sections=document.querySelectorAll('.section');
+const navLinks=document.querySelectorAll('#toc a');
+const observer=new IntersectionObserver((entries)=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      navLinks.forEach(l=>l.classList.remove('active'));
+      const link=document.querySelector(`#toc a[href="#${e.target.id}"]`);
+      if(link)link.classList.add('active');
+    }
+  });
+},{rootMargin:'-20% 0px -60% 0px'});
+sections.forEach(s=>observer.observe(s));
+</script>
+</body>
+</html>
