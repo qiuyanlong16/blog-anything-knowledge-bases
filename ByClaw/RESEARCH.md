@@ -23,6 +23,7 @@
 11. [模型路由与多模型管理](#十一附模型路由与多模型管理) — 详见 [MODEL_ROUTING.md](MODEL_ROUTING.md)
 11. [Agent 内核切换](#十一附二agent-内核切换) — 详见 [KERNEL_SWITCHING.md](KERNEL_SWITCHING.md)
 11. [多会话架构](#十一附三多会话架构) — 详见 [MULTI_SESSION_ARCHITECTURE.md](MULTI_SESSION_ARCHITECTURE.md)
+11. [长期记忆系统](#十一附四长期记忆系统) — 详见 [LONG_TERM_MEMORY.md](LONG_TERM_MEMORY.md)
 12. [实施计划](#十二实施计划)
 13. [参考项目](#十三参考项目)
 
@@ -1922,31 +1923,65 @@ QClaw 的内核切换设计：
 
 ### 核心要点
 
-QClaw 的多会话管理基于**双独立数据目录**设计，而非统一的抽象层：
+QClaw 的多会话管理本质是 **"OpenClaw 多 Agent + Hermes 单 Agent"**：
 
 | 维度 | OpenClaw (`~/.qclaw/`) | Hermes (`~/.qclaw-hermes/`) |
 |------|------------------------|----------------------------|
+| **Agent 数量** | 多 Agent（`openclaw.json` 的 `agents.list` 数组定义） | 单 Agent（`hermes_default`） |
 | **配置文件** | `openclaw.json` (JSON) | `config.yaml` (YAML) |
-| **会话索引** | `agents/main/sessions/sessions.json` | `agent.json` (sessionIds/sessionTitles/sessionUpdatedAts) |
+| **Agent 注册** | `openclaw.json` → `agents.list` 段 | `agent.json` 单文件 |
+| **会话索引** | `agents/{id}/sessions/sessions.json`（per-agent） | `agent.json` 内嵌 sessionIds/sessionTitles/sessionUpdatedAts |
+| **Session Key** | `agent:{agentId}:{channel}:{chatType}:{from}` | 直接 session UUID |
 | **会话存储** | JSONL 逐行追加 | 完整 JSON 文件 |
-| **消息格式** | `{"type":"message","message":{"role":"user","content":[{"type":"text","text":"..."}]}}` | `{"messages":[{"role":"user","content":"你好","reasoning":"..."}]}` |
-| **模型记录** | `sessions.json` 中 `modelProvider` + `model` 字段 | 消息中直接存储 `model` 字段 |
+| **Channel 路由** | `bindings` 数组定义 channel → agent 绑定 | 无 channel 概念 |
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │  前端 SessionManager                                         │
 │                                                             │
-│  1. probeDirectories() → 检测 .qclaw/ 和 .qclaw-hermes/     │
-│  2. 分别解析两种格式的会话索引                                │
-│  3. 归一化为 UnifiedSession 接口                             │
-│  4. 通过 IPC 按需加载会话内容                                 │
+│  1. 读取 openclaw.json → agents.list → 获取 OpenClaw Agent  │
+│  2. 读取 .qclaw-hermes/agent.json → 获取 Hermes Agent       │
+│  3. 根据 agent.kernel 选择对应解析器                         │
+│  4. 归一化为 UnifiedSession 接口                             │
+│  5. 通过 IPC 按需加载会话内容                                 │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 **关键设计决策**：
-- 前端主动探测双目录，主进程不做格式转换
+- `openclaw.json` 的 `agents.list` 就是 Agent 注册表，无需额外文件
+- 每个 Agent 有独立的 `~/.qclaw/agents/{id}/` 目录（models.json + sessions/）
+- Session Key 包含完整 channel 信息，用于消息路由
+- `bindings` 数组实现 channel → agent 自动路由
 - 两种内核共享同一本地代理 (127.0.0.1:19000)，但会话数据完全独立
-- Agent 创建时绑定内核类型，会话文件归属由内核决定
+- Agent 创建时在 `agents.list` 中注册，之后固定在对应内核
+
+---
+
+## 十一（附四）、长期记忆系统
+
+详细技术调研见独立文档 **[LONG_TERM_MEMORY.md](LONG_TERM_MEMORY.md)**。
+
+### 核心要点
+
+两个内核使用**完全独立的记忆架构**，不共享任何记忆数据：
+
+| 维度 | OpenClaw (lossless-claw 插件) | Hermes (内置 memory 工具) |
+|------|-------------------------------|--------------------------|
+| **触发方式** | 自动压缩（上下文 > 60%） | Agent 自主判断保存 |
+| **存储** | SQLite（lcm.db，32 张表） | 未知（Hermes 内部管理） |
+| **记忆类型** | 对话压缩 + 多层摘要 + FTS 检索 | 声明式事实（facts） |
+| **检索工具** | lcm_grep/describe/expand/memory_search/memory_get (6 个) | memory + session_search (2 个) |
+| **中文支持** | ✅（summaries_fts_cjk 中文分词） | 未知 |
+
+**OpenClaw 记忆流程**：
+```
+对话 → JSONL → LCM 引擎自动压缩 → lcm.db → context_items + bootstrap 注入
+```
+
+**Hermes 记忆流程**：
+```
+对话 → Agent 判断 → memory 工具 → 内部存储 → 每轮注入 system_prompt
+```
 
 ---
 
@@ -1979,7 +2014,7 @@ QClaw 的多会话管理基于**双独立数据目录**设计，而非统一的�
 | 任务 | 产出 |
 |------|------|
 | 实现内核管理器 `KernelManager` | OpenClaw/Hermes 进程池 + 统一协议层 |
-| 实现 Agent 注册表 + 持久化 | `agents.json` + 多 Agent 切换 |
+| 实现 Agent 注册表 + 持久化 | `openclaw.json` → `agents.list` + 多 Agent 切换 |
 | 迁移现有自定义插件 | `src/plugins/` 目录 |
 | 实现多 Channel 管理 | Channel 列表 + 启用/禁用 |
 | 实现埋点/遥测系统 | 事件采集 + 上报 |

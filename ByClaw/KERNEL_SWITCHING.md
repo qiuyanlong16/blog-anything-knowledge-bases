@@ -1,7 +1,8 @@
 # QClaw Agent 内核切换 — 技术分析
 
-> **调研日期**: 2026-05-12
-> **参考**: QClaw Mac 产品截图 + OpenClaw + Hermes Agent 源码分析
+> **调研日期**: 2026-05-13（第二轮验证）
+> **参考**: QClaw Mac 实际用户数据目录 + 安装包解压 + OpenClaw/Hermes 源码分析
+> **App 版本**: 0.2.18 (`@guanjia-openclaw/electron`)
 
 ---
 
@@ -38,7 +39,7 @@
 
 ## 二、架构推断
 
-### 2.1 整体架构
+### 2.1 整体架构（经实际数据验证修正）
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -50,52 +51,55 @@
 │  │  ┌─────────────────────────────────────────────────────┐  │  │
 │  │  │  Agent Manager (Agent 管理器)                         │  │  │
 │  │  │                                                      │  │  │
-│  │  │  • 管理多个 Agent 实例                                │  │  │
-│  │  │  • 每个 Agent 绑定一个内核 (OpenClaw 或 Hermes)        │  │  │
-│  │  │  • Agent 间隔离 (会话/配置/内存独立)                   │  │  │
+│  │  │  从 openclaw.json 读取 agents.list:                    │  │  │
+│  │  │  • main (QClaw) → kernel: openclaw                   │  │  │
+│  │  │  • agent-3d43b911 (无不言) → kernel: openclaw        │  │  │
+│  │  │  从 .qclaw-hermes/agent.json 读取:                    │  │  │
+│  │  │  • hermes_default (林且慢) → kernel: hermes          │  │  │
+│  │  │                                                      │  │  │
+│  │  │  bindings: channel → agentId 路由规则                  │  │  │
+│  │  │  (openclaw-weixin → main)                             │  │  │
 │  │  └─────────────────────────────────────────────────────┘  │  │
 │  │                                                           │  │
 │  │  ┌─────────────────────────────────────────────────────┐  │  │
 │  │  │  Kernel Pool (内核进程池)                             │  │  │
 │  │  │                                                      │  │  │
-│  │  │  ┌──────────────┐  ┌──────────────┐                 │  │  │
-│  │  │  │ OpenClaw     │  │ Hermes       │                 │  │  │
-│  │  │  │ Gateway      │  │ ACP          │                 │  │  │
-│  │  │  │ (Node.js)    │  │ (Python)     │                 │  │  │
-│  │  │  │              │  │              │                 │  │  │
-│  │  │  │ 多会话复用   │  │ 多会话复用    │                 │  │  │
-│  │  │  │ 一个进程     │  │ 一个进程      │                 │  │  │
-│  │  │  └──────────────┘  └──────────────                 │  │  │
-│  │  └─────────────────────────────────────────────────────┘  │  │
-│  │                                                           │  │
-│  │  ┌─────────────────────────────────────────────────────┐  │  │
-│  │  │  Unified Protocol Layer (统一协议层)                  │  │  │
-│  │  │                                                      │  │  │
-│  │  │  将不同内核的协议统一为内部消息格式:                     │  │  │
-│  │  │  • OpenClaw: WebSocket JSON 帧 → NormalizedMessage   │  │  │
-│  │  │  • Hermes: stdio JSON-RPC (ACP) → NormalizedMessage  │  │  │
+│  │  │  ┌──────────────────┐  ┌──────────────────┐         │  │  │
+│  │  │  │ OpenClaw Gateway │  │ Hermes Gateway   │         │  │  │
+│  │  │  │ (Node.js)        │  │ (Python)         │         │  │  │
+│  │  │  │ 端口 28789       │  │ gateway run      │         │  │  │
+│  │  │  │ 多 Agent 共享    │  │ 单 Agent          │         │  │  │
+│  │  │  │ (main + 自定义)  │  │ (hermes_default)  │         │  │  │
+│  │  │  └──────────────────┘  └──────────────────┘         │  │  │
 │  │  └─────────────────────────────────────────────────────┘  │  │
 │  └───────────────────────────────────────────────────────────┘  │
 │                                                                 │
 │  ┌───────────────────────────────────────────────────────────┐  │
-│  │  Agent 持久化 (~/.qclaw/agents/)                           │  │
+│  │  数据目录 (~)                                              │  │
 │  │                                                           │  │
-│  │  ├── main/                    ← 默认 Agent (OpenClaw)      │  │
-│  │  │   ├── sessions/            ← 会话 JSONL                 │  │
-│  │  │   │   ├── xxx.jsonl                                    │  │
-│  │  │   │   └── yyy.jsonl                                    │  │
-│  │  │   └── config.json          ← Agent 配置                 │  │
-│  │  ├── custom-agent-1/          ← 用户自定义 Agent           │  │
-│  │  │   ├── kernel: hermes                                   │  │
-│  │  │   ├── sessions/                                        │  │
-│  │  │   └── config.json                                      │  │
-│  │  └── custom-agent-2/          ← 另一个 Agent              │  │
-│  │      ├── kernel: openclaw                                 │  │
-│  │      ├── sessions/                                        │  │
-│  │      └── config.json                                      │  │
+│  │  ├── .qclaw/                    ← OpenClaw 内核            │  │
+│  │  │   ├── openclaw.json          ← agents.list 注册表       │  │
+│  │  │   └── agents/                ← per-Agent 目录           │  │
+│  │  │       ├── main/              ← 默认 Agent              │  │
+│  │  │       │   ├── agent/models.json                        │  │
+│  │  │       │   └── sessions/*.jsonl                         │  │
+│  │  │       └── agent-{uuid}/      ← 自定义 Agent             │  │
+│  │  │           ├── agent/models.json                        │  │
+│  │  │           └── sessions/*.jsonl                         │  │
+│  │  │                                                       │  │
+│  │  └── .qclaw-hermes/             ← Hermes 内核 (完全独立)   │  │
+│  │      ├── config.yaml                                      │  │
+│  │      ├── agent.json                                         │  │
+│  │      └── sessions/session_*.json                          │  │
 │  ───────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+**关键修正**：
+- Agent 注册表在 `openclaw.json` 的 `agents.list` 段，不是独立的 `agents.json`
+- OpenClaw 支持多 Agent，每个 Agent 有独立的 `~/.qclaw/agents/{id}/` 目录
+- Hermes 仅支持单 Agent（`hermes_default`），数据在 `~/.qclaw-hermes/`
+- Session Key 包含完整 channel 信息：`agent:{agentId}:{channel}:{chatType}:{from}`
 
 ### 2.2 内核进程管理策略
 
@@ -241,42 +245,69 @@ export interface AgentKernel {
 
 ## 四、Mac 上的具体实现
 
-### 4.1 双内核预装结构
+### 4.1 双内核预装结构（经安装包验证）
 
 ```
 QClaw.app/Contents/Resources/
 │
-├── openclaw/                 # OpenClaw Node.js 运行时
-│   ├── node/                 # 内置 Node.js 22+
-│   │   ├── bin/node
-│   │   └── lib/node_modules/
-│   ├── node_modules/         # OpenClaw + 依赖
-│   ├── gateway.js            # Gateway 启动入口
-│   └── package.json
+├── app.asar                    ← Electron 主进程代码 (V8 字节码编译, 107MB)
+│   └── out/main/index.cjsc     ← 字节码编译后的主进程代码
+│       └── bytecode-loader.cjs ← V8 bytecode 反序列化加载器
 │
-├── hermes/                   # Hermes Python 运行时
-│   ├── venv/                 # 预装的 Python 虚拟环境
-│   │   ├── bin/python3
-│   │   ├── bin/hermes
-│   │   └── lib/python3.11/site-packages/
-│   └── requirements.txt
+├── app.asar.unpacked/
+│   └── node_modules/
+│       ├── @tencent/            ← 腾讯 SDK (QQ Bot 等)
+│       └── better-sqlite3/      ← SQLite 原生模块
 │
-├── app.asar                  # Electron 业务代码
-└── icons/
+├── openclaw.tar.gz              ← OpenClaw 运行时 (162MB, 安装时解压)
+│   └── openclaw/                ← 解压后目录
+│       ├── node/                ← 内置 Node.js 22+
+│       └── node_modules/        ← OpenClaw + 依赖
+│
+├── hermes.tar.gz                ← Hermes 运行时 (126MB, 安装时解压)
+│   └── hermes/                  ← 解压后目录
+│       └── hermes               ← Hermes 二进制
+│
+├── hermes-plugins/              ← Hermes 插件 (Python 包)
+│   └── qclaw-plugin-hermes/
+│       ├── adapter/             ← 适配层 (dispatch.py, register.py)
+│       ├── core_kit/            ← 核心工具包
+│       └── plugin.yaml
+│
+├── node/node                    ← 内置 Node.js 二进制 (110MB)
+├── scripts/
+│   ├── pack-qclaw.cjs           ← 问题反馈打包脚本
+│   └── unpack-openclaw.cjs      ← 安装时 OpenClaw tar 解压脚本
+├── channel.json                 ← 当前渠道 ({"channel": 5001})
+└── icon.icns
 ```
 
-### 4.2 内核启动命令
+### 4.2 内核启动命令（经实际数据验证）
 
 ```bash
-# OpenClaw Gateway
-/Users/.../QClaw.app/Contents/Resources/openclaw/node/bin/node \
-  /Users/.../QClaw.app/Contents/Resources/openclaw/gateway.js \
-  --config ~/.qclaw/openclaw.json
+# OpenClaw Gateway (从 qclaw.json 中的 cli 字段推断)
+/Applications/QClaw.app/Contents/Resources/node/node \
+  /Users/qiududu/Library/Application Support/QClaw/openclaw/node_modules/openclaw/openclaw.mjs \
+  gateway --config /Users/qiududu/.qclaw/openclaw.json --port 28789
 
-# Hermes ACP
-/Users/.../QClaw.app/Contents/Resources/hermes/venv/bin/python3 \
-  -m hermes acp
+# Hermes Gateway (从 gateway_state.json argv 字段)
+/Users/qiududu/Library/Application Support/QClaw/hermes/hermes \
+  gateway run --replace \
+  --config /Users/qiududu/.qclaw-hermes/config.yaml
 ```
+
+### 4.3 代码保护机制
+
+QClaw 使用 **V8 字节码编译** 保护主进程代码：
+
+```javascript
+// out/main/index.cjs
+"use strict";
+require("./bytecode-loader.cjs");
+require("./index.cjsc");
+```
+
+`.cjsc` 文件是 V8 编译后的字节码，通过自定义 `Module._extensions[".cjsc"]` 加载器反序列化。加载器使用 `vm.Script` + `cachedData` 机制，设置 `--no-lazy` 和 `--no-flush-bytecode` V8 标志。
 
 ### 4.3 内核管理器实现
 
@@ -417,62 +448,85 @@ export class KernelManager extends EventEmitter {
 
 ## 五、Agent 持久化设计（经实际数据验证修正）
 
-### 5.1 实际目录结构
+### 5.1 实际目录结构（第二轮验证，完整修正）
 
-**OpenClaw 和 Hermes 使用完全独立的数据目录**，不是统一目录下的子目录。
+**OpenClaw 和 Hermes 使用完全独立的数据目录，不是统一目录下的子目录。**
+
+**关键修正**：OpenClaw 内核支持多 Agent，`openclaw.json` 的 `agents.list` 段就是注册表。
 
 ```
 ~/.qclaw/                              ← OpenClaw 数据目录
 ├── openclaw.json                      ← OpenClaw 核心配置 (JSON)
+│                                      #   - agents.defaults: 全局默认 (model, workspace, maxConcurrent)
+│                                      #   - agents.list: [多 Agent 定义数组] ← 这就是注册表
+│                                      #   - bindings: channel → agent 绑定规则
+│                                      #   - skills: extraDirs + entries 开关
+│                                      #   - models: providers + merge 模式
+│                                      #   - plugins: 插件系统 (wechat-access, lossless-claw, ...)
+│                                      #   - channels: channel 配置
+│                                      #   - gateway: 端口/模式/认证
 ├── qclaw.json                         ← QClaw 产品配置
 │   ├── authGatewayBaseUrl: http://127.0.0.1:19000/proxy
 │   ├── stateDir: ~/.qclaw
 │   ├── port: 28789
 │   └── cli: { nodeBinary, openclawMjs, pid }
-├── agents/
-│   ├── main/                          ← 默认 Agent (OpenClaw 内核)
+├── channel-defaults.json              ← channel 默认目标映射
+│                                      #   - {agentId: {channel: {to: userId}}}
+│
+├── agents/                            ← Agent 目录（多 Agent 支持）
+│   ├── main/                          ← 默认 Agent (QClaw)
 │   │   ├── agent/
-│   │   │   └── models.json            ← Agent 元数据 (providers 配置)
+│   │   │   └── models.json            ← Agent 专属模型配置
 │   │   └── sessions/
-│   │       ├── sessions.json          ← 会话索引: { sessionKey: { sessionId, label, model, ... } }
-│   │       ├── 033db0cf-....jsonl     ← 会话数据 (JSONL, 逐行追加)
-│   │       └── ...
-│   └── __creating__/                  ← Agent 创建中临时目录
+│   │       ├── sessions.json          ← 会话索引 (per-agent)
+│   │       │                          #   - Key: "agent:{agentId}:{channel}:{chatType}:{from}"
+│   │       │                          #   - Value: {sessionId, origin, deliveryContext,
+│   │       │                          #             skillsSnapshot, systemPromptReport, ...}
+│   │       └── *.jsonl                ← 会话数据 (JSONL, 逐行追加)
+│   │
+│   └── agent-{uuid}/                  ← 自定义 Agent (如: 无不言)
+│       ├── agent/
+│       │   └── models.json            ← 该 Agent 的模型配置
+│       └── sessions/
+│           ├── sessions.json          ← 该 Agent 的会话索引
+│           └── *.jsonl                ← 该 Agent 的会话数据
+│
 ├── skills/                            ← OpenClaw Skills
 ├── plugins/                           ← OpenClaw Plugins
-├── memory/lossless/lcm.db             ← 长期记忆 (SQLite)
+├── memory/lossless/lcm.db             ← 长期记忆 (SQLite, lossless-claw 插件)
 ├── flows/registry.sqlite              ← 流程注册表 (SQLite)
-├── workspace/                         ← 工作区 (AGENTS.md, SOUL.md, TOOLS.md...)
-└── ...
+├── workspace/                         ← 默认工作区 (main agent)
+│   ├── AGENTS.md / SOUL.md / TOOLS.md / IDENTITY.md / USER.md
+└── workspace-agent-{id}/             ← 自定义 Agent 工作区
+
 
 ~/.qclaw-hermes/                       ← Hermes 数据目录 (完全独立)
 ├── config.yaml                        ← Hermes 配置 (YAML)
 │   ├── model.default: modelroute
 │   ├── model.base_url: http://127.0.0.1:19000/proxy/llm
 │   └── plugins.enabled: [qclaw-plugin-hermes]
-├── agent.json                         ← Agent 元数据 (JSON)
+├── agent.json                         ← 唯一的 Agent 元数据 (JSON)
 │   ├── agentId: hermes_default
-│   ├── name: 代可行
-│   ├── vibe: 热爱手搓的程序员
-│   ├── bio: [{ title: "经历", desc: "..." }, { title: "风格", desc: "..." }]
-│   ├── sessionIds: [...]
-│   ├── sessionTitles: { id: title }
-│   └── sessionUpdatedAts: { id: timestamp }
+│   ├── name, vibe, avatar, emoji
+│   ├── bio: [{title, desc}, ...]
+│   ├── skills: [技能名数组]
+│   ├── sessionIds: [会话ID数组]
+│   ├── sessionTitles: {id: title}
+│   └── sessionUpdatedAts: {id: timestamp}
 ├── SOUL.md                            ← 角色设定 (Markdown)
 ├── sessions/
-│   └── session_xxx.json               ← 会话数据 (完整 JSON)
+│   └── session_{uuid}.json            ← 会话数据 (完整 JSON)
 │       ├── session_id, model, base_url
-│       ├── system_prompt: 完整 Markdown (SOUL.md + memory 提示)
-│       ├── tools: [function calling schema] (约 20 个工具)
-│       └── messages: [{ role, content, reasoning, finish_reason }]
-├── state.db                           ← 状态 (SQLite)
-├── audit.db                           ← 审计 (SQLite)
-├── response_store.db                  ← 响应存储 (SQLite)
-├── gateway_state.json                 ← Gateway 状态 (pid, running, platforms)
+│       ├── system_prompt: 完整 Markdown (含身份设定)
+│       ├── tools: [function calling schema]
+│       └── messages: [{role, content, reasoning?, ...}]
+├── state.db / audit.db / response_store.db  ← SQLite 数据库
+├── gateway_state.json                 ← Gateway 状态
+│   ├── pid, kind: "hermes-gateway"
+│   ├── gateway_state: "running"
+│   ├── platforms: {api_server: {state: "connected"}}
 ├── gateway.pid / gateway.lock         ← 进程管理
-├── skills/                            ← Hermes Skills
-├── memories/                          ← 记忆
-├── logs/                              ← 日志
+├── channel_directory.json             ← 频道目录
 └── workspace/                         ← 工作区
 ```
 
@@ -504,17 +558,20 @@ export class KernelManager extends EventEmitter {
 
 ## 六、对我们要构建的产品的启示
 
-### 6.1 核心设计决策（经实际数据修正）
+### 6.1 核心设计决策（第二轮实际数据修正）
 
 | 决策 | 方案 | 原因 | 实际验证 |
 |------|------|------|----------|
 | **数据目录隔离** | OpenClaw: `~/.qclaw/`，Hermes: `~/.qclaw-hermes/` | 两个内核各自管理自己的数据，互不干扰 | ✅ QClaw 实际如此 |
 | **配置格式差异** | OpenClaw JSON，Hermes YAML | 各用各的原生格式，不强求统一 | ✅ QClaw 实际如此 |
 | **会话格式差异** | OpenClaw JSONL，Hermes JSON | 各用各的存储方式 | ✅ QClaw 实际如此 |
-| **Agent 注册** | 无统一注册表，前端探测两个目录 | 简化设计，不需要额外维护注册表 | ✅ QClaw 无 agents.json |
+| **Agent 注册** | `openclaw.json` 的 `agents.list` 段 | 集中配置，不需要额外文件 | ✅ 第二轮验证修正 |
+| **多 Agent 支持** | OpenClaw 支持多 Agent，Hermes 仅单 Agent | OpenClaw 已实现 per-agent 目录隔离 | ✅ agents/main/ + agents/agent-3d43b911/ |
+| **Channel 绑定** | `bindings` 数组定义 channel → agent 路由 | 自动将不同渠道消息路由到指定 Agent | ✅ openclaw.json 验证 |
 | **共享本地代理** | 两者都走 127.0.0.1:19000 | 统一管理模型路由、计费、状态 | ✅ 两者 baseUrl 都是 19000 |
-| **角色设定** | OpenClaw: skills，Hermes: SOUL.md | 各自用各自的方式 | ✅ 实际验证 |
+| **角色设定** | OpenClaw: workspace 文件，Hermes: SOUL.md | 各自用各自的方式 | ✅ 实际验证 |
 | **内核进程** | OpenClaw 默认启动，Hermes 按需启动 | 节省资源 | ✅ gateway_state.json 证明 |
+| **代码保护** | V8 字节码编译 (.cjsc) | 防止逆向工程 | ✅ bytecode-loader.cjs 验证 |
 | **前端统一** | 主进程转换后返回 UnifiedSession | 前端无感知底层差异 | 建议方案 |
 
 ### 6.2 内核切换流程图
@@ -585,17 +642,23 @@ export class KernelManager extends EventEmitter {
 
 ---
 
-## 七、总结（经实际数据修正）
+## 七、总结（第二轮实际数据修正）
 
 QClaw 的多内核管理本质上是：
 
 1. **双目录隔离** — OpenClaw (`~/.qclaw/`) 和 Hermes (`~/.qclaw-hermes/`) 各自有完全独立的数据目录
-2. **配置格式不同** — OpenClaw 用 JSON，Hermes 用 YAML；会话存储前者用 JSONL 后者用完整 JSON
-3. **共享本地代理** — 两者都走 `127.0.0.1:19000` 同一个模型路由代理
-4. **无统一注册表** — 前端通过探测两个目录来发现 Agent，不存在 `agents.json` 注册表
-5. **角色设定方式不同** — OpenClaw 用 skills 系统注入，Hermes 用 `SOUL.md` 文件
-6. **Gateway 状态管理** — Hermes 有完整的 `gateway_state.json`，OpenClaw 依赖 qclaw.json 中的 pid
-7. **前端统一抽象** — 主进程负责格式转换，前端只看到 `UnifiedSession`
-8. **Hermes 单 Agent** — 目前 Hermes 只支持 `hermes_default` 一个 Agent，OpenClaw 支持多 Agent
+2. **OpenClaw 多 Agent** — `openclaw.json` 的 `agents.list` 段定义多个 Agent，每个 Agent 有独立目录 (`~/.qclaw/agents/{id}/`)
+3. **Hermes 单 Agent** — 目前仅支持 `hermes_default`，数据在 `~/.qclaw-hermes/`
+4. **Session Key 含 Channel** — 格式为 `agent:{agentId}:{channel}:{chatType}:{from}`，完整标识会话来源
+5. **Channel → Agent 绑定** — `bindings` 数组定义路由规则（如 openclaw-weixin → main）
+6. **配置格式不同** — OpenClaw 用 JSON，Hermes 用 YAML；会话存储前者用 JSONL 后者用完整 JSON
+7. **共享本地代理** — 两者都走 `127.0.0.1:19000` 同一个模型路由代理
+8. **角色设定方式不同** — OpenClaw 用 workspace/ 下的 AGENTS.md、SOUL.md 等文件注入，Hermes 用 `SOUL.md` 文件 + `agent.json` bio 段
+9. **Gateway 状态管理** — Hermes 有完整的 `gateway_state.json`（含 pid/platforms 状态），OpenClaw 依赖 qclaw.json 中的 pid
+10. **代码保护** — 主进程代码使用 V8 字节码编译（.cjsc），防止逆向
+11. **Plugin 插件系统** — OpenClaw 有完整的插件系统（wechat-access, lossless-claw 记忆等），Hermes 有 Python 插件（qclaw-plugin-hermes）
+12. **前端统一抽象** — 主进程负责格式转换，前端只看到 `UnifiedSession`
 
 > 详细的会话数据格式对比、前端加载流程、主进程转换代码见 **[MULTI_SESSION_ARCHITECTURE.md](MULTI_SESSION_ARCHITECTURE.md)**。
+> 模型路由与多模型管理见 **[MODEL_ROUTING.md](MODEL_ROUTING.md)**。
+> 长期记忆架构对比（OpenClaw lossless-claw vs Hermes 内置 memory）见 **[LONG_TERM_MEMORY.md](LONG_TERM_MEMORY.md)**。
