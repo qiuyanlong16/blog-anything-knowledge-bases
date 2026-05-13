@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QClaw 架构全景图</title>
+<style>
+  :root {
+    --bg: #0a0e17;
+    --surface: #111827;
+    --surface2: #1a2235;
+    --border: #1e2d45;
+    --text: #e2e8f0;
+    --text-dim: #8896ab;
+    --accent-cyan: #06b6d4;
+    --accent-blue: #3b82f6;
+    --accent-purple: #8b5cf6;
+    --accent-pink: #ec4899;
+    --accent-green: #10b981;
+    --accent-orange: #f59e0b;
+    --accent-red: #ef4444;
+    --accent-teal: #14b8a6;
+    --glow-cyan: rgba(6,182,212,0.3);
+    --glow-purple: rgba(139,92,246,0.3);
+    --glow-blue: rgba(59,130,246,0.3);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'SF Pro Display', -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 800px 600px at 20% 20%, rgba(6,182,212,0.06), transparent),
+      radial-gradient(ellipse 600px 400px at 80% 80%, rgba(139,92,246,0.06), transparent);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  header {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    padding: 60px 20px 30px;
+  }
+  header h1 {
+    font-size: 2.8rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue), var(--accent-purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 8px;
+  }
+  header p {
+    color: var(--text-dim);
+    font-size: 1.1rem;
+    max-width: 700px;
+    margin: 0 auto;
+  }
+  header .badge-row {
+    margin-top: 16px;
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  header .badge {
+    display: inline-block;
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border: 1px solid;
+  }
+  .badge.dual { border-color: var(--accent-purple); color: var(--accent-purple); background: rgba(139,92,246,0.1); }
+  .badge.electron { border-color: var(--accent-cyan); color: var(--accent-cyan); background: rgba(6,182,212,0.1); }
+  .badge.version { border-color: var(--accent-green); color: var(--accent-green); background: rgba(16,185,129,0.1); }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+
+  /* Layer sections */
+  .layer {
+    position: relative;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: var(--surface);
+    margin-bottom: 20px;
+    overflow: hidden;
+    transition: border-color 0.3s;
+  }
+  .layer:hover { border-color: rgba(59,130,246,0.4); }
+  .layer-header {
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+  .layer-num {
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 0.85rem;
+  }
+  .layer-title { font-weight: 700; font-size: 1.15rem; }
+  .layer-sub { color: var(--text-dim); font-size: 0.85rem; }
+  .layer-body { padding: 20px 24px; }
+
+  /* Cards grid */
+  .card-grid {
+    display: grid;
+    gap: 14px;
+  }
+  .card-grid.c2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+  .card-grid.c3 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+  .card-grid.c4 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .card-grid.c5 { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+
+  .card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+  }
+  .card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+  }
+  .card-title {
+    font-weight: 600;
+    font-size: 0.95rem;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .card-desc {
+    color: var(--text-dim);
+    font-size: 0.82rem;
+    line-height: 1.5;
+  }
+  .card-tags {
+    margin-top: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .tag {
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-weight: 500;
+    background: rgba(59,130,246,0.1);
+    color: var(--accent-blue);
+    border: 1px solid rgba(59,130,246,0.15);
+  }
+
+  /* Dual-core section */
+  .dual-core {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  @media (max-width: 900px) { .dual-core { grid-template-columns: 1fr; } }
+  .kernel {
+    border-radius: 14px;
+    padding: 20px;
+    border: 2px solid;
+    position: relative;
+    overflow: hidden;
+  }
+  .kernel::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0.05;
+    pointer-events: none;
+  }
+  .kernel.openclaw {
+    border-color: rgba(6,182,212,0.3);
+    background: linear-gradient(135deg, rgba(6,182,212,0.05), transparent);
+  }
+  .kernel.hermes {
+    border-color: rgba(139,92,246,0.3);
+    background: linear-gradient(135deg, rgba(139,92,246,0.05), transparent);
+  }
+  .kernel h3 {
+    font-size: 1.2rem;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .kernel h3 .emoji { font-size: 1.5rem; }
+  .kernel .k-desc {
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    margin-bottom: 16px;
+  }
+  .kernel ul {
+    list-style: none;
+    padding: 0;
+  }
+  .kernel ul li {
+    padding: 6px 0;
+    font-size: 0.85rem;
+    color: var(--text);
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .kernel ul li::before {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    margin-top: 7px;
+    flex-shrink: 0;
+  }
+  .kernel.openclaw ul li::before { background: var(--accent-cyan); }
+  .kernel.hermes ul li::before { background: var(--accent-purple); }
+
+  /* Architecture diagram (SVG-like with CSS) */
+  .arch-flow {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    overflow-x: auto;
+    padding: 10px 0;
+  }
+  .arch-node {
+    min-width: 160px;
+    padding: 16px;
+    border-radius: 12px;
+    text-align: center;
+    border: 1px solid;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .arch-node .node-title {
+    font-weight: 700;
+    font-size: 0.9rem;
+    margin-bottom: 4px;
+  }
+  .arch-node .node-sub {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+  }
+  .arch-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 60px;
+    color: var(--text-dim);
+    font-size: 1.2rem;
+    flex-shrink: 0;
+  }
+
+  /* Connection lines */
+  .connection-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+  }
+  .connection-table th, .connection-table td {
+    padding: 8px 12px;
+    text-align: left;
+    font-size: 0.82rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .connection-table th {
+    color: var(--text-dim);
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .connection-table td { color: var(--text); }
+
+  /* Code snippet */
+  .code-block {
+    background: #0d1117;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.78rem;
+    line-height: 1.7;
+    overflow-x: auto;
+    color: #c9d1d9;
+  }
+  .code-block .kw { color: #ff7b72; }
+  .code-block .str { color: #a5d6ff; }
+  .code-block .cm { color: #484f58; }
+  .code-block .fn { color: #d2a8ff; }
+  .code-block .num { color: #79c0ff; }
+
+  /* Memory diagram */
+  .memory-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-width: 500px;
+    margin: 0 auto;
+  }
+  .mem-layer {
+    padding: 12px 16px;
+    border-radius: 10px;
+    border: 1px solid;
+    text-align: center;
+    font-weight: 600;
+    font-size: 0.88rem;
+    position: relative;
+  }
+  .mem-layer .mem-sub {
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: var(--text-dim);
+  }
+  .mem-layer.l1 { background: rgba(6,182,212,0.1); border-color: rgba(6,182,212,0.3); color: var(--accent-cyan); }
+  .mem-layer.l2 { background: rgba(59,130,246,0.1); border-color: rgba(59,130,246,0.3); color: var(--accent-blue); }
+  .mem-layer.l3 { background: rgba(139,92,246,0.1); border-color: rgba(139,92,246,0.3); color: var(--accent-purple); }
+  .mem-layer.l4 { background: rgba(16,185,129,0.1); border-color: rgba(16,185,129,0.3); color: var(--accent-green); }
+
+  /* IPC section */
+  .ipc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 8px;
+  }
+  .ipc-item {
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-family: 'SF Mono', monospace;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+  }
+
+  /* Footer */
+  footer {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-dim);
+    font-size: 0.82rem;
+  }
+  footer a { color: var(--accent-cyan); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    header h1 { font-size: 1.8rem; }
+    .layer-body { padding: 14px; }
+    .card-grid.c2, .card-grid.c3, .card-grid.c4, .card-grid.c5 {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* Animations */
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .layer { animation: fadeInUp 0.6s ease-out both; }
+  .layer:nth-child(2) { animation-delay: 0.1s; }
+  .layer:nth-child(3) { animation-delay: 0.2s; }
+  .layer:nth-child(4) { animation-delay: 0.3s; }
+  .layer:nth-child(5) { animation-delay: 0.4s; }
+  .layer:nth-child(6) { animation-delay: 0.5s; }
+  .layer:nth-child(7) { animation-delay: 0.6s; }
+  .layer:nth-child(8) { animation-delay: 0.7s; }
+  .layer:nth-child(9) { animation-delay: 0.8s; }
+  .layer:nth-child(10) { animation-delay: 0.9s; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>QClaw 架构全景图</h1>
+  <p>腾讯桌面 AI 助手 — 基于 Electron + 双内核（OpenClaw + Hermes）的深度架构解析</p>
+  <div class="badge-row">
+    <span class="badge electron">Electron + Vue 3</span>
+    <span class="badge dual">双核架构</span>
+    <span class="badge version">v0.2.18</span>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- ====== LAYER 0: Overview Flow ====== -->
+  <div class="layer">
+    <div class="layer-header">
+      <div class="layer-num" style="background:var(--accent-cyan);color:#000;">0</div>
+      <div>
+        <div class="layer-title">请求流转总览</div>
+        <div class="layer-sub">用户输入到 AI 响应的完整数据流</div>
+      </div>
+    </div>
+    <div class="layer-body">
+      <div class="arch-flow">
+        <div class="arch-node" style="background:rgba(6,182,212,0.1);border-color:rgba(6,182,212,0.3);color:var(--accent-cyan);">
+          <div class="node-title">用户交互</div>
+          <div class="node-sub">桌面客户端 / 微信</div>
+        </div>
+        <div class="arch-arrow">──▶</div>
+        <div class="arch-node" style="background:rgba(59,130,246,0.1);border-color:rgba(59,130,246,0.3);color:var(--accent-blue);">
+          <div class="node-title">Vue 3 Renderer</div>
+          <div class="node-sub">Ant Design Vue / Vite</div>
+        </div>
+        <div class="arch-arrow">──▶</div>
+        <div class="arch-node" style="background:rgba(139,92,246,0.1);border-color:rgba(139,92,246,0.3);color:var(--accent-purple);">
+          <div class="node-title">IPC 通信</div>
+          <div class="node-sub">90+ IPC 通道</div>
+        </div>
+        <div class="arch-arrow">──▶</div>
+        <div class="arch-node" style="background:rgba(245,158,11,0.1);border-color:rgba(245,158,11,0.3);color:var(--accent-orange);">
+          <div class="node-title">WS 长连接</div>
+          <div class="node-sub">ws://127.0.0.1:19789</div>
+        </div>
+        <div class="arch-arrow">──▶</div>
+        <div class="arch-node" style="background:rgba(236,72,153,0.1);border-color:rgba(236,72,153,0.3);color:var(--accent-pink);">
+          <div class="node-title">OpenClaw Gateway</div>
+          <div class="node-sub">LLM Proxy / Hermes Proxy</div>
+        </div>
+        <div class="arch-arrow">──▶</div>
+        <div class="arch-node" style="background:rgba(16,185,129,0.1);border-color:rgba(16,185,129,0.3);color:var(--accent-green);">
+          <div class="node-title">双核引擎</div>
+          <div class="node-sub">OpenClaw / Hermes</div>
+        </div>
+        <div class="arch-arrow">──▶</div>
+        <div class="arch-node" style="background:rgba(20,184,166,0.1);border-color:rgba(20,184,166,0.3);color:var(--accent-teal);">
+          <div class="node-title">LLM 上游</div>
+          <div class="node-sub">多模型路由 / 腾讯混元</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== LAYER 1: 交互层 ====== -->
+  <div class="layer">
+    <div class="layer-header">
+      <div class="layer-num" style="background:var(--accent-cyan);color:#000;">1</div>
+      <div>
+        <div class="layer-title">交互层 (Interaction Layer)</div>
+        <div class="layer-sub">多端入口 + 桌面客户端技术栈</div>
+      </div>
+    </div>
+    <div class="layer-body">
+      <div class="card-grid c3">
+        <div class="card">
+          <div class="card-title"><span class="card-dot" style="background:var(--accent-cyan)"></span>桌面客户端</div>
+          <div class="card-desc">Electron 应用，Windows/macOS 双平台，V8 Bytecode 代码保护</div>
+          <div class="card-tags">
+            <span class="tag">Electron</span>
+            <span class="tag">Vue 3</span>
+            <span class="tag">Ant Design Vue</span>
+            <span class="tag">Vite</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="card-dot" style="background:var(--accent-purple)"></span>微信生态</div>
+          <div class="card-desc">微信扫码登录、企业微信 AI Bot、微信公众号消息通道</div>
+          <div class="card-tags">
+            <span class="tag">wxLogin.js</span>
+            <span class="tag">WeCom AI Bot</span>
+            <span class="tag">QQ Bot</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="card-dot" style="background:var(--accent-pink)"></span>IMA 集成</div>
+          <div class="card-desc">腾讯 IMA 智能助手 iframe 嵌入，通过 JSAPI SDK 桥接通信</div>
+          <div class="card-tags">
+            <span class="tag">ima-jsapi-sdk</span>
+            <span class="tag">15 API 方法</span>
+            <span class="tag">postMessage</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="card-dot" style="background:var(--accent-orange)"></span>多窗口管理</div>
+          <div class="card-desc">主窗口 + 系统托盘 + 反馈窗口 + 文件预览 + GuardBar + IOA 企业登录</div>
+          <div class="card-tags">
+            <span class="tag">BrowserWindow</span>
+            <span class="tag">Tray</span>
+            <span class="tag">Frameless</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="card-dot" style="background:var(--accent-green)"></span>安全加固</div>
+          <div class="card-desc">CSP 策略、自定义证书验证、PII 脱敏、敏感词过滤、AES-256-GCM 加密</div>
+          <div class="card-tags">
+            <span class="tag">CSP</span>
+            <span class="tag">AES-256-GCM</span>
+            <span class="tag">PII Masker</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="card-dot" style="background:var(--accent-red)"></span>代码保护</div>
+          <div class="card-desc">V8 Bytecode 编译 (.cjsc)，核心业务逻辑无法直接反编译</div>
+          <div class="card-tags">
+            <span class="tag">vm.Script</span>
+            <span class="tag">cachedData</span>
+            <span class="tag">--no-lazy</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== LAYER 2: 理解层 ====== -->
+  <div class="layer">
+    <div class="layer-header">
+      <div class="layer-num" style="background:var(--accent-blue);color:#fff;">2</div>
+      <div>
+        <div class="layer-title">理解层 (Understanding Layer) — LLM 多模型路由</div>
+        <div class="layer-sub">Gateway LLM Proxy 模块负责请求路由、超时管理和多模型调度</div>
+      </div>
+    </div>
+    <div class="layer-body">
+      <div class="dual-core" style="margin-bottom:20px;">
+        <div class="kernel openclaw">
+          <h3><span class="emoji"></span> OpenClaw 内核</h3>
+          <div class="k-desc">开源 AI Agent 平台，广泛的生态覆盖</div>
+          <ul>
+            <li>HTTP SSE 流式推理</li>
+            <li>多模型路由与负载均衡</li>
+            <li>工具调用与 Skill 编排</li>
+            <li>多频道消息路由（微信/Telegram/Slack）</li>
+            <li>插件化 Skill 系统</li>
+            <li>OpenAI 兼容 API (/chat/completions)</li>
+          </ul>
+        </div>
+        <div class="kernel hermes">
+          <h3><span class="emoji"></span> Hermes Agent 内核</h3>
+          <div class="k-desc">持续学习与持久化记忆，macOS 独占支持</div>
+          <ul>
+            <li>Python 3.11 运行时</li>
+            <li>持久化记忆系统（情境/语义/动态调度）</li>
+            <li>会话级状态管理与幽灵会话清理</li>
+            <li>/v1/responses 端点 + 流式输出</li>
+            <li>Prompt Inspector 工具链</li>
+            <li>自动 Agent 同步（SOUL.md）</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card-grid c4" style="margin-bottom:20px;">
+        <div class="card">
+          <div class="card-title"><span class="card-dot" style="background:var(--accent-cyan)"></span>模型路由</div>
+          <div class="card-desc">resolveLlmUpstream 动态解析上游模型，支持多 Provider 切换</div>
+          <div class="card-tags">
+            <span class="tag">resolveLlmUpstream</span>
+            <span class="tag">llmRouteHandler</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="card-dot" style="background:var(--accent-orange)"></span>SSE 超时管理</div>
+          <div class="card-desc">TTFB 超时、Body 读取超时、SSE Idle 超时、Hardcap 硬超时</div>
+          <div class="card-tags">
+            <span class="tag">TTFB Timeout</span>
+            <span class="tag">Idle Timeout</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="card-dot" style="background:var(--accent-purple)"></span>代理路由</div>
+          <div class="card-desc">多个代理端点，各司其职</div>
+          <div class="card-tags">
+            <span class="tag">/proxy/llm</span>
+            <span class="tag">/proxy/hermes</span>
+            <span class="tag">/proxy/prosearch</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="card-dot" style="background:var(--accent-green)"></span>后端切换</div>
+          <div class="card-desc">应用层通过 qclaw_backend 标识选择 OpenClaw 或 Hermes</div>
+          <div class="card-tags">
+            <span class="tag">openclaw</span>
+            <span class="tag">hermes</span>
+            <span class="tag">hermes_default</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="code-block">
+<span class="cm">// LLM Proxy 路由日志（从 bytecode 提取）</span>
+<span class="str">[LLMProxy] HTTP outgoing request headers: </span>...
+<span class="str">[LLMProxy] HTTP upstream </span>...
+<span class="str">[LLMProxy] HTTP complete: </span>...
+<span class="str">[LLMProxy] SSE TTFB timeout (</span>...<span class="str">)</span>
+<span class="str">[LLMProxy] SSE client disconnected (</span>...<span class="str">)</span>
+<span class="str">[LLMProxy] SSE missing [DONE] terminator:</span>...
+
+<span class="cm">// Hermes 事件处理（从 bytecode 提取）</span>
+<span class="str">[hermes-report-bridge] session_start sess=</span>...
+<span class="str">[hermes-report-bridge] llm_input sess=</span>...
+<span class="str">[hermes-report-bridge] llm_output sess=</span>...
+<span class="str">[hermes-report-bridge] tool_call_start sess=</span>...
+<span class="str">[hermes-report-bridge] tool_call_end sess=</span>...
+<span class="str">[hermes-report-bridge] trace_span span=</span>...
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== LAYER 2.5: Dual Core Gateway Architecture ====== -->
+  <div class="layer">
+    <div class="layer-header">
+      <div class="layer-num" style="background:var(--accent-pink);color:#fff;">2.5</div>
+      <div>
+        <div class="layer-title">双核 Gateway 架构</div>
+        <div class="layer-sub">前端共用 WS 连接 → Gateway 内部路由到 OpenClaw 或 Hermes</div>
+      </div>
+    </div>
+    <div class="layer-body">
+      <div class="arch-flow" style="flex-wrap:wrap;">
+        <div class="arch-node" style="background:rgba(6,182,212,0.1);border-color:rgba(6,182,212,0.3);color:var(--accent-cyan);min-width:200px;">
+          <div class="node-title">Renderer (Vue 3)</div>
+          <div class="node-sub">ws://127.0.0.1:19789</div>
+          <div class="node-sub">clientId: openclaw-control-ui</div>
+        </div>
+        <div class="arch-arrow" style="font-size:1.5rem;">──▶</div>
+        <div class="arch-node" style="background:rgba(236,72,153,0.1);border-color:rgba(236,72,153,0.3);color:var(--accent-pink);min-width:220px;">
+          <div class="node-title">OpenClaw Gateway</div>
+          <div class="node-sub">JSON RPC over WebSocket</div>
+          <div class="node-sub">Handshake + Challenge + Seq</div>
+        </div>
+        <div class="arch-arrow" style="font-size:1.5rem;">──▶</div>
+        <div class="arch-node" style="background:rgba(139,92,246,0.1);border-color:rgba(139,92,246,0.3);color:var(--accent-purple);min-width:180px;">
+          <div class="node-title">Hermes Python</div>
+          <div class="node-sub">/proxy/hermes</div>
+          <div class="node-sub">HERMES_HTTP_PORT</div>
+        </div>
+        <div class="arch-arrow" style="font-size:1.5rem;">──▶</div>
+        <div class="arch-node" style="background:rgba(20,184,166,0.1);border-color:rgba(20,184,166,0.3);color:var(--accent-teal);min-width:180px;">
+          <div class="node-title">LLM 上游</div>
+          <div class="node-sub">/proxy/llm</div>
+          <div class="node-sub">多模型/多Provider</div>
+        </div>
+      </div>
+
+      <div style="margin-top:20px;">
+        <div class="code-block">
+<span class="cm">// 前端 WS 连接配置（从 renderer bytecode 提取）</span>
+<span class="kw">const</span> options = {
+  <span class="str">url</span>: <span class="str">"ws://127.0.0.1:19789"</span>,           <span class="cm">// 本地 Gateway</span>
+  <span class="str">token</span>: <span class="str">"dev-test-token"</span>,                 <span class="cm">// 认证 Token</span>
+  <span class="str">clientId</span>: <span class="str">"openclaw-control-ui"</span>,         <span class="cm">// 客户端标识</span>
+  <span class="str">clientVersion</span>: <span class="str">"1.0.0"</span>,
+  <span class="str">mode</span>: <span class="str">"webchat"</span>,                          <span class="cm">// 或 "ui"</span>
+  <span class="str">autoReconnect</span>: <span class="num">true</span>,
+};
+
+<span class="cm">// 后端选择（应用层标识）</span>
+sa([<span class="str">"openclaw"</span>, <span class="str">"hermes"</span>]);                  <span class="cm">// 双核枚举</span>
+<span class="kw">const</span> sj = <span class="str">"hermes_default"</span>;               <span class="cm">// 默认 Hermes Agent ID</span>
+        </div>
+      </div>
+
+      <div style="margin-top:16px; padding: 14px; border-radius:10px; background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.2);">
+        <strong style="color:var(--accent-orange);">关键结论：</strong>
+        <span style="color:var(--text-dim); font-size:0.85rem;">双内核共用同一个 Gateway WS 长连接，不是各自独立连接。前端只连 <code style="background:rgba(0,0,0,0.3);padding:2px 6px;border-radius:4px;">ws://127.0.0.1:19789</code>，由 Gateway 内部 LLM Proxy 模块根据请求类型路由到 OpenClaw 引擎或 Hermes 进程。后端选择是应用层概念（<code style="background:rgba(0,0,0,0.3);padding:2px 6px;border-radius:4px;">qclaw_backend</code>），不是连接层概念。</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== LAYER 3: 规划层 ====== -->
+  <div class="layer">
+    <div class="layer-header">
+      <div class="layer-num" style="background:var(--accent-purple);color:#fff;">3</div>
+      <div>
+        <div class="layer-title">规划层 (Planning Layer) — 任务编排与会话管理</div>
+        <div class="layer-sub">Agent 配置、会话生命周期、线程绑定</div>
+      </div>
+    </div>
+    <div class="layer-body">
+      <div class="card-grid c3">
+        <div class="card">
+          <div class="card-title"><span class="card-dot" style="background:var(--accent-purple)"></span>Agent 配置</div>
+          <div class="card-desc">agent.json 定义 Agent 属性，agents.list 管理多 Agent，支持从 SOUL.md 自动同步</div>
+          <div class="card-tags">
+            <span class="tag">agent.json</span>
+            <span class="tag">agents.list</span>
+            <span class="tag">SOUL.md</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="card-dot" style="background:var(--accent-blue)"></span>会话管理</div>
+          <div class="card-desc">会话 CRUD + 幽灵会话自动清理（通过 response_store.conversations 交叉验证）</div>
+          <div class="card-tags">
+            <span class="tag">appendSession</span>
+            <span class="tag">reconcileSessionIds</span>
+            <span class="tag">ghost session cleanup</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="card-dot" style="background:var(--accent-cyan)"></span>线程绑定</div>
+          <div class="card-desc">threadBindings 管理空闲时长和 TTL，自动清理过期会话</div>
+          <div class="card-tags">
+            <span class="tag">idleHours</span>
+            <span class="tag">ttlHours</span>
+            <span class="tag">SESSION_LINGER_MS</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== LAYER 4: 记忆层 ====== -->
+  <div class="layer">
+    <div class="layer-header">
+      <div class="layer-num" style="background:var(--accent-green);color:#000;">4</div>
+      <div>
+        <div class="layer-title">记忆层 (Memory Layer) — 分层持久化记忆系统</div>
+        <div class="layer-sub">Hermes 核心能力：构建接近人类记忆机制的层级体系</div>
+      </div>
+    </div>
+    <div class="layer-body">
+      <div class="memory-stack" style="margin-bottom:20px;">
+        <div class="mem-layer l1">
+          情境记忆 (Episodic Memory)
+          <div class="mem-sub">对话历史、会话上下文、会话状态追踪</div>
+        </div>
+        <div class="mem-layer l2">
+          语义记忆 (Semantic Memory)
+          <div class="mem-sub">事实知识、概念关联、用户偏好学习</div>
+        </div>
+        <div class="mem-layer l3">
+          动态调度 (Dynamic Scheduling)
+          <div class="mem-sub">记忆提取、记忆注入、遗忘策略</div>
+        </div>
+        <div class="mem-layer l4">
+          持久化存储 (Persistent Storage)
+          <div class="mem-sub">SQLite (qclaw.db, state.db, response_store.db) + 文件系统</div>
+        </div>
+      </div>
+
+      <div class="card-grid c3">
+        <div class="card">
+          <div class="card-title"><span class="card-dot" style="background:var(--accent-green)"></span>Memory Plugin</div>
+          <div class="card-desc">MEMORY_TENCENTDB_PLUGIN_ID，TencentDB 支持的记忆插件，支持 gating 开关</div>
+          <div class="card-tags">
+            <span class="tag">MEMORY_TENCENTDB_PLUGIN_ID</span>
+            <span class="tag">openclaw-mem0</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="card-dot" style="background:var(--accent-cyan)"></span>Auto Memory V2</div>
+          <div class="card-desc">自动记忆提取 V2 版本，支持 gating 禁用</div>
+          <div class="card-tags">
+            <span class="tag">auto_memory_v2_disable</span>
+            <span class="tag">autoMemoryV2GatingDisable</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="card-dot" style="background:var(--accent-purple)"></span>状态持久化</div>
+          <div class="card-desc">4 个 SQLite 数据库，持久化会话、审计、响应缓存、应用状态</div>
+          <div class="card-tags">
+            <span class="tag">qclaw.db</span>
+            <span class="tag">audit.db</span>
+            <span class="tag">state.db</span>
+            <span class="tag">response_store.db</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== LAYER 5: 执行层 ====== -->
+  <div class="layer">
+    <div class="layer-header">
+      <div class="layer-num" style="background:var(--accent-orange);color:#000;">5</div>
+      <div>
+        <div class="layer-title">执行层 (Execution Layer) — 5000+ Skills 工具链</div>
+        <div class="layer-sub">MCP 协议集成 + 内置技能 + 第三方扩展</div>
+      </div>
+    </div>
+    <div class="layer-body">
+      <div class="card-grid c4" style="margin-bottom:20px;">
+        <div class="card">
+          <div class="card-title"><span class="card-dot" style="background:var(--accent-blue)"></span>腾讯生态</div>
+          <div class="card-tags">
+            <span class="tag">tencent-docs</span>
+            <span class="tag">tencent-meeting-mcp</span>
+            <span class="tag">tencent-musician-skills</span>
+            <span class="tag">tencent-news</span>
+            <span class="tag">tme-openapi</span>
+            <span class="tag">wecomcli-setup</span>
+            <span class="tag">wj.qq.com 问卷</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="card-dot" style="background:var(--accent-cyan)"></span>核心技能</div>
+          <div class="card-tags">
+            <span class="tag">browser-cdp</span>
+            <span class="tag">frontend-design</span>
+            <span class="tag">github-skill</span>
+            <span class="tag">mcp-builder</span>
+            <span class="tag">web-artifacts-builder</span>
+            <span class="tag">webapp-testing</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="card-dot" style="background:var(--accent-purple)"></span>第三方集成</div>
+          <div class="card-tags">
+            <span class="tag">bdpan-storage</span>
+            <span class="tag">notion-skill</span>
+            <span class="tag">slack-gif-creator</span>
+            <span class="tag">email-skill</span>
+            <span class="tag">git-workflow</span>
+            <span class="tag">youdaonote</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="card-dot" style="background:var(--accent-green)"></span>云服务</div>
+          <div class="card-tags">
+            <span class="tag">ASR (语音识别)</span>
+            <span class="tag">TTS (语音合成)</span>
+            <span class="tag">COS (对象存储)</span>
+            <span class="tag">WPS Skill Hub</span>
+            <span class="tag">微云 MCP</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="code-block">
+<span class="cm">// 技能同步与插件管理（从 bytecode 提取）</span>
+<span class="str">[SkillSync] Starting system skills sync...</span>
+<span class="str">[SkillSync] System diff: install=</span>...
+<span class="str">[SkillSync] System sync complete: installed=</span>...
+<span class="str">[SkillSync] Periodic sync started (interval: </span>...<span class="str">)</span>
+<span class="str">[ConfigPatcher] Added missing plugins.allow entry: </span>...
+<span class="str">[PluginInstaller] Enabled gateway.http.endpoints.chatCompletions for </span>...
+
+<span class="cm">// 凭证通道（31 个 credentials:* IPC）</span>
+credentials:qqbotStartQrConnect  credentials:tdocCheckAuth
+credentials:initiateAuth         credentials:wecomCliManualAuth
+credentials:mcpSkillWaitAuth     credentials:writeSkillEnv
+credentials:imaCheckInstalled    credentials:saveForAccount
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== External Services ====== -->
+  <div class="layer">
+    <div class="layer-header">
+      <div class="layer-num" style="background:var(--accent-teal);color:#000;">E</div>
+      <div>
+        <div class="layer-title">外部服务集成</div>
+        <div class="layer-sub">从 bytecode 字符串中提取的完整 URL 清单</div>
+      </div>
+    </div>
+    <div class="layer-body">
+      <table class="connection-table">
+        <thead>
+          <tr>
+            <th>服务域</th>
+            <th>URL / 端点</th>
+            <th>用途</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>QClaw</td><td><code>qclaw.qq.com</code></td><td>官方网站</td></tr>
+          <tr><td>精灵小助手</td><td><code>jprx.m.qq.com</code> · <code>jprx.woa.com</code> · <code>jprx.beta.wsd.com</code></td><td>核心后端 API（登录/会话/Token/安全）</td></tr>
+          <tr><td>微信 AI</td><td><code>ilinkai.weixin.qq.com</code></td><td>微信 AI 后端</td></tr>
+          <tr><td>Agent 网关</td><td><code>mmgrcalltoken.3g.qq.com/aizone/v1</code> · <code>agentwss</code></td><td>Agent WebSocket 长连接</td></tr>
+          <tr><td>智慧QQ</td><td><code>api.zhihui.qq.com</code></td><td>AI 设计服务（PPT/设计Agent）</td></tr>
+          <tr><td>腾讯文档</td><td><code>docs.qq.com/openapi/mcp</code> · <code>api/v6/doc/mcp</code> · <code>api/v6/sheet/mcp</code></td><td>文档/表格 MCP</td></tr>
+          <tr><td>企业微信</td><td><code>qyapi.weixin.qq.com/cgi-bin/aibot/cli/get_mcp_config</code></td><td>AI Bot MCP 配置</td></tr>
+          <tr><td>腾讯问卷</td><td><code>wj.qq.com/api/v2/mcp</code></td><td>问卷 MCP</td></tr>
+          <tr><td>微云</td><td><code>www.weiyun.com/api/v3/mcpserver</code></td><td>微云 MCP Server</td></tr>
+          <tr><td>WPS</td><td><code>mcp-center.wps.cn/skill_hub/mcp</code></td><td>WPS Skill Hub</td></tr>
+          <tr><td>腾讯安全</td><td><code>security.guanjia.qq.com/login</code> · <code>pcmgrmonitor.3g.qq.com/datareport</code></td><td>安全登录 / 数据上报</td></tr>
+          <tr><td>Aegis</td><td><code>aegis.qq.com/collect/events</code></td><td>前端崩溃/性能监控</td></tr>
+          <tr><td>Galileo</td><td><code>galileotelemetry.tencent.com/collect</code></td><td>腾讯内部遥测平台</td></tr>
+          <tr><td>腾讯云 ASR</td><td><code>asr.tencentcloudapi.com</code></td><td>语音识别</td></tr>
+          <tr><td>腾讯云 TTS</td><td><code>tts.tencentcloudapi.com</code></td><td>语音合成</td></tr>
+          <tr><td>COS</td><td><code>*.cos.ap-guangzhou.myqcloud.com</code></td><td>广州/上海/北京 对象存储</td></tr>
+          <tr><td>百度网盘</td><td><code>openapi.baidu.com/oauth/2.0/token</code></td><td>OAuth 授权</td></tr>
+          <tr><td>本地 OTLP</td><td><code>localhost:4318</code></td><td>OpenTelemetry 采集器</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ====== IPC Channels ====== -->
+  <div class="layer">
+    <div class="layer-header">
+      <div class="layer-num" style="background:var(--accent-red);color:#fff;">I</div>
+      <div>
+        <div class="layer-title">IPC 通信通道 (90+)</div>
+        <div class="layer-sub">从 bytecode 字符串中提取的完整 IPC 通道清单</div>
+      </div>
+    </div>
+    <div class="layer-body">
+      <div class="ipc-grid">
+        <div class="ipc-item" style="border-left:3px solid var(--accent-cyan);">app:captureScreen</div>
+        <div class="ipc-item" style="border-left:3px solid var(--accent-cyan);">app:downloadSkill</div>
+        <div class="ipc-item" style="border-left:3px solid var(--accent-cyan);">app:enableSkills</div>
+        <div class="ipc-item" style="border-left:3px solid var(--accent-cyan);">app:getSkillsInfo</div>
+        <div class="ipc-item" style="border-left:3px solid var(--accent-cyan);">app:get-machine-id</div>
+        <div class="ipc-item" style="border-left:3px solid var(--accent-cyan);">app:get-openclaw-version</div>
+        <div class="ipc-item" style="border-left:3px solid var(--accent-pink);">credentials:qqbotStartQrConnect</div>
+        <div class="ipc-item" style="border-left:3px solid var(--accent-pink);">credentials:initiateAuth</div>
+        <div class="ipc-item" style="border-left:3px solid var(--accent-pink);">credentials:tdocCheckAuth</div>
+        <div class="ipc-item" style="border-left:3px solid var(--accent-pink);">credentials:wecomCliManualAuth</div>
+        <div class="ipc-item" style="border-left:3px solid var(--accent-pink);">credentials:mcpSkillWaitAuth</div>
+        <div class="ipc-item" style="border-left:3px solid var(--accent-pink);">credentials:writeSkillEnv</div>
+        <div class="ipc-item" style="border-left:3px solid var(--accent-purple);">integration:weixinLoginStart</div>
+        <div class="ipc-item" style="border-left:3px solid var(--accent-purple);">integration:yuanbaoLoginStart</div>
+        <div class="ipc-item" style="border-left:3px solid var(--accent-purple);">integration:qqbotQrUrl</div>
+        <div class="ipc-item" style="border-left:3px solid var(--accent-purple);">integration:tdocCheckAuth</div>
+        <div class="ipc-item" style="border-left:3px solid var(--accent-purple);">integration:wecomCliPollQR</div>
+        <div class="ipc-item" style="border-left:3px solid var(--accent-orange);">gateway.auth</div>
+        <div class="ipc-item" style="border-left:3px solid var(--accent-orange);">gateway.bind</div>
+        <div class="ipc-item" style="border-left:3px solid var(--accent-orange);">gateway.tailscale</div>
+        <div class="ipc-item" style="border-left:3px solid var(--accent-green);">feedback:openWindow</div>
+        <div class="ipc-item" style="border-left:3px solid var(--accent-green);">filePreview:openWindow</div>
+        <div class="ipc-item" style="border-left:3px solid var(--accent-red);">securityAudit:getAuditLogs</div>
+        <div class="ipc-item" style="border-left:3px solid var(--accent-red);">securityAudit:getConfig</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== Telemetry ====== -->
+  <div class="layer">
+    <div class="layer-header">
+      <div class="layer-num" style="background:var(--accent-teal);color:#000;">T</div>
+      <div>
+        <div class="layer-title">可观测性体系</div>
+        <div class="layer-sub">三层遥测 + 50+ RUM 事件 + 30+ OTel 属性</div>
+      </div>
+    </div>
+    <div class="layer-body">
+      <div class="card-grid c3">
+        <div class="card">
+          <div class="card-title"><span class="card-dot" style="background:var(--accent-teal)"></span>OpenTelemetry</div>
+          <div class="card-desc">OTLP HTTP 导出到 localhost:4318，完整的 Protobuf schema</div>
+          <div class="card-tags">
+            <span class="tag">OTLP Exporter</span>
+            <span class="tag">BoundedQueue</span>
+            <span class="tag">Batch Export</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="card-dot" style="background:var(--accent-blue)"></span>Galileo 遥测</div>
+          <div class="card-desc">腾讯内部可观测平台，Hermes 报告桥接</div>
+          <div class="card-tags">
+            <span class="tag">galileo-otel</span>
+            <span class="tag">HermesReportBridge</span>
+            <span class="tag">crashReport</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="card-dot" style="background:var(--accent-purple)"></span>Aegis 前端监控</div>
+          <div class="card-desc">崩溃报告、性能指标、用户行为追踪</div>
+          <div class="card-tags">
+            <span class="tag">aegis_min</span>
+            <span class="tag">crashReport</span>
+            <span class="tag">RUM</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  <p>基于 QClaw v0.2.18 源码 Bytecode 字符串提取 + 公开技术文档综合分析</p>
+  <p style="margin-top:8px;">参考: <a href="https://cloud.tencent.com/developer/article/2658299" target="_blank">QClaw 背后的技术架构深度解析</a> · <a href="https://cloud.tencent.com/developer/article/2664024" target="_blank">OpenClaw 消息路由机制详解</a> · <a href="https://guoxudong.io/post/openclaw-vs-hermes-agent/" target="_blank">OpenClaw vs Hermes Agent</a></p>
+</footer>
+
+</body>
+</html>
