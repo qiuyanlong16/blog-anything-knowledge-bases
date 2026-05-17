@@ -594,3 +594,132 @@ if (!app.isPackaged) {
 1. **Phase 1**：基础自动更新（检查 → 下载 → 安装）
 2. **Phase 2**：用户体验优化（更新日志展示、进度条、强制更新标记）
 3. **Phase 3**：灰度发布 + 增量更新（按需）
+
+---
+
+## 11. QClaw 实际更新流程详解（v0.2.19 → v0.2.20 实测）
+
+### 11.1 下载包存放位置
+
+electron-updater 在 Windows 上下载的更新包存放在一个**极难发现的位置**：
+
+```
+%LOCALAPPDATA%\<package-name>electron-updater\pending\
+```
+
+QClaw 的 package 名为 `@guanjia/openclaw`，scoped package 名拼接后**漏了分隔符**，导致目录名为：
+
+```
+C:\Users\<user>\AppData\Local\@guanjia-openclawelectron-updater\pending\
+```
+
+> **注意：** 目录名反人类的原因——electron-updater 内部用 `app.getName()` 获取应用名，
+> 对 scoped npm 包直接拼接，没有处理 `@org/name` 中的 `/`。
+
+目录结构：
+
+```
+@guanjia-openclawelectron-updater/
+├── installer.exe          ← 旧版本安装包（历史残留）
+└── pending/
+    ├── QClaw-Setup-0.2.20-5001-501.exe   ← 最新下载的安装包（~392MB）
+    ── update-info.json                  ← 校验元数据
+```
+
+`update-info.json` 内容示例：
+
+```json
+{
+  "fileName": "QClaw-Setup-0.2.20-5001-501.exe",
+  "sha512": "uhypfpYVbjso7n1wnWm7Ppn5XEa5zaBX0h3sIsK4cTSnu7pbgId065VCIoXNHIUxbtE6Og3lG+Su0b1gB7/ssA==",
+  "isAdminRightsRequired": false
+}
+```
+
+### 11.2 完整更新流程时序
+
+从用户点击"重启升级"到新版本运行，完整流程如下：
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│ Phase 1: 检查更新 (应用运行中)                                     │
+──────────────────────────────────────────────────────────────────┤
+│ 1. 启动 3 秒后，静默 GET latest.yml                               │
+│ 2. 对比 version: 远端 0.2.20 > 本地 0.2.19                       │
+│ 3. 触发 update-available 事件 → UI 显示"可更新"绿色标签            │
+└──────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────┐
+│ Phase 2: 后台下载 (应用继续运行)                                   │
+├──────────────────────────────────────────────────────────────────┤
+│ 4. 自动触发 downloadUpdate()                                      │
+│ 5. 从 CDN 下载安装包到 pending/ 目录                              │
+│    路径: %LOCALAPPDATA%\@guanjia-openclawelectron-updater\pending\│
+│    文件名: QClaw-Setup-0.2.20-5001-501.exe (~392MB)              │
+│ 6. 下载过程中持续触发 download-progress 事件（UI 进度条）          │
+│ 7. 下载完成后自动 SHA-512 校验                                    │
+│    校验值比对 update-info.json 中的 sha512                        │
+│ 8. 校验通过 → 触发 update-downloaded 事件                        │
+│    → UI 更新按钮文案为"重启升级"                                   │
+└──────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────┐
+│ Phase 3: 重启安装 (应用关闭 → 新安装 → 启动)                       │
+├──────────────────────────────────────────────────────────────────┤
+│ 9. 用户点击"重启升级"按钮                                          │
+│ 10. 调用 autoUpdater.quitAndInstall()                            │
+│     内部执行: 启动 pending/QClaw-Setup-*.exe (带 /S 静默参数)      │
+│     然后: app.quit() 关闭当前进程                                 │
+│                                                                  │
+│ 11. 旧进程退出，NSIS 安装器开始运行:                               │
+│     a. 静默模式 (/S) 无 UI，用户看不到安装界面                     │
+│     b. 从注册表读取旧安装路径 (HKCU/HKLM\...\uninstall 路径)        │
+│     c. 解压 NSIS 内嵌的压缩包到旧安装路径                          │
+│        → 覆盖旧版本的 app.asar、resources、.electron 等文件       │
+│     d. 写入新版本的卸载信息到注册表                                │
+│     e. 可选: 启动新版本应用                                        │
+│                                                                  │
+│ 12. 安装器退出，新版本应用启动                                     │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### 11.3 安装包是完整的还是局部？
+
+**完整安装包**，不是增量补丁。原因：
+
+- QClaw 使用 NSIS 打包，`differentialPackage` 为 `false`（默认）
+- electron-updater 下载的是**完整的 `.exe` 安装包**，包含 Electron runtime + 应用代码
+- 392MB 的大小印证了这一点（Electron runtime 本身约 150-200MB）
+- NSIS 安装包内嵌的是压缩后的完整文件树，不是 diff
+
+### 11.4 重启安装需要多长时间？
+
+取决于两个因素：
+
+| 阶段 | 耗时 | 说明 |
+|------|------|------|
+| 旧进程退出 | ~1-2 秒 | `app.quit()` 立即返回 |
+| NSIS 解压安装 | **10-60 秒** | 解压 392MB 的 NSIS 包到磁盘，取决于硬盘速度（SSD vs HDD） |
+| 新进程启动 | ~3-5 秒 | 新版本 Electron 启动 + 加载 asar |
+| **总计** | **约 15-70 秒** | 用户感知为"关闭后等一会儿自动打开新版本" |
+
+### 11.5 关键设计细节
+
+1. **为什么叫 `pending` 目录？**
+   - electron-updater 的 `NsisUpdater` 类在下载完成后，将文件移入 `pending/` 子目录
+   - 表示"已下载，等待用户确认重启"的状态
+   - `quitAndInstall()` 会从这个目录启动安装器
+
+2. **旧版本的 `installer.exe` 是什么？**
+   - 这是 electron-updater 早期版本（或首次更新时）下载的残留
+   - 新版本下载时放在 `pending/` 中，不会覆盖根目录的旧文件
+   - 可以安全删除
+
+3. **安装路径会改变吗？**
+   - 不会。NSIS 安装器从注册表读取上次的安装路径
+   - 用户的配置数据（`app.getPath('userData')`）不受影响
+   - 配置目录与安装路径完全独立
+
+4. **用户需要管理员权限吗？**
+   - QClaw 的配置中 `isAdminRightsRequired: false`
+   - 说明安装在用户目录下（`%LOCALAPPDATA%\Programs\`），不需要 UAC 提权
