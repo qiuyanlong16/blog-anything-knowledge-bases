@@ -40,7 +40,7 @@
 | **Hermes Agent 集成** | Mac/Ubuntu 开箱即用；Windows 用户点击按钮后在 WSL2 中部署 |
 | **Agent 切换** | 用户可在 UI 中切换使用 OpenClaw 或 Hermes |
 | **本地 IPC 通信** | 优先使用 IPC（stdio），而非 HTTP 端口 |
-| **Web 团队全栈** | 充分利用团队 Web 开发能力 |
+| **团队全栈** | 团队所有人可以快速上手 |
 
 ### 1.2 两个 Agent 的技术特征
 
