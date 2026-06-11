@@ -12,6 +12,7 @@
 1. [需求梳理](#一需求梳理)
 2. [竞品分析](#二竞品分析)
 3. [候选框架对比](#三候选框架对比)
+   - [Tauri vs Electron 补充对比](Tauri_vs_Electron_AI_Agent.md)
 4. [最终选型：Electron](#四最终选型electron)
 5. [整体架构设计](#五整体架构设计)
 6. [安全设计（四层防御体系）](#六安全设计四层防御体系)
@@ -169,6 +170,12 @@ QClaw 的处理方式：
 | Hermes WSL2 部署 | TS 实现 | Rust 实现 | Go 实现 |
 | OpenClaw 升级影响 | 只改适配层 | 改适配层 + IPC 层 | 改适配层 + IPC 层 |
 | 团队组成 | 全 Web 团队 | Web + Rust 工程师 | Web + Go 工程师 |
+
+### 3.4 补充参考：Tauri vs Electron 简表
+
+外部整理的框架层对比见独立文档 **[Tauri_vs_Electron_AI_Agent.md](Tauri_vs_Electron_AI_Agent.md)**。
+
+该文档侧重壳层性能、体积、安全等通用维度；**本项目结论不变**——深度定制 OpenClaw + Web 团队全栈 + 类 QClaw 产品形态，**Electron 仍是唯一合理选择**（见 [第四节](#四最终选型electron)）。
 
 ---
 
@@ -2061,6 +2068,8 @@ QClaw 的多会话管理本质是 **"OpenClaw 多 Agent + Hermes 单 Agent"**：
 ---
 
 ## 附录：框架选型决策树
+
+> 补充阅读：[Tauri_vs_Electron_AI_Agent.md](Tauri_vs_Electron_AI_Agent.md)
 
 ```
 是否需要深度定制 OpenClaw (Hook/插件/埋点/守护)?
